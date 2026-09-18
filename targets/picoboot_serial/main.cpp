@@ -1,9 +1,8 @@
-// Phase 2: real SD card catalog + picoboot.cfg, still a bare menu (no
-// paging/auto-boot yet -- that's Phase 5's job; this phase's goal is
-// proving the storage/config plumbing only). Flashing still not
-// implemented (Phase 3).
+// Phase 3: real flash-writer/VTOR-jump/fast-boot round trip. Still a bare
+// menu (no paging/auto-boot yet -- that's Phase 5's job).
 
 #include "picoboot/app_catalog.h"
+#include "picoboot/app_manager.h"
 #include "picoboot/config.h"
 #include "picoboot/fastboot.h"
 
@@ -21,6 +20,12 @@ namespace {
 pico_toolset::SdCard g_sd_card;
 picoboot::AppCatalog g_catalog;
 picoboot::PicoBootConfig g_config;
+picoboot::AppManager g_app_manager(g_sd_card, g_config);
+
+void print_progress(void*, float fraction) {
+    printf("\r  flashing... %3d%%", static_cast<int>(fraction * 100));
+    fflush(stdout);
+}
 
 void print_menu() {
     printf("\nPicoBoot (Phase 2 skeleton)\n");
@@ -89,8 +94,24 @@ int main() {
                 const picoboot::AppBinaryEntry* entry =
                     choice >= 1 ? g_catalog.find(static_cast<size_t>(choice - 1)) : nullptr;
                 if (entry) {
-                    printf("Would load '%s' (flashing not implemented until Phase 3).\n",
-                           entry->filename.c_str());
+                    printf("Loading '%s'...\n", entry->filename.c_str());
+                    fflush(stdout);
+                    picoboot::ProgressSink sink{print_progress, nullptr};
+                    const picoboot::LoadResult result = g_app_manager.load_and_boot(*entry, sink);
+                    // load_and_boot() only returns on failure -- success
+                    // reboots into the app and never comes back here.
+                    switch (result) {
+                        case picoboot::LoadResult::kTooLarge:
+                            printf("\nError: '%s' is too large for the app partition.\n",
+                                   entry->filename.c_str());
+                            break;
+                        case picoboot::LoadResult::kReadFailed:
+                            printf("\nError: failed to read '%s' from the SD card.\n",
+                                   entry->filename.c_str());
+                            break;
+                        case picoboot::LoadResult::kBooting:
+                            break; // unreachable
+                    }
                 } else {
                     printf("Unrecognized input '%s'.\n", line);
                 }

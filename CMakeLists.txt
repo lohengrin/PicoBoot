@@ -40,4 +40,5 @@ add_subdirectory(${TOOLSET_ROOT}/components/sdcard ${CMAKE_BINARY_DIR}/_toolset/
 add_subdirectory(boot_core)
 add_subdirectory(storage)
 add_subdirectory(config)
+add_subdirectory(app_manager)
 add_subdirectory(targets/picoboot_serial)

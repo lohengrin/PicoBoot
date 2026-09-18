@@ -10,6 +10,7 @@ target_link_libraries(picoboot_serial PRIVATE
     picoboot_boot_core
     picoboot_storage
     picoboot_config
+    picoboot_app_manager
 )
 
 include(${CMAKE_CURRENT_LIST_DIR}/../../cmake/picoboot_sdcard_stdio.cmake)
