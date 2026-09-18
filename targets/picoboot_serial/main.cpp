@@ -1,48 +1,70 @@
-// Phase 1 skeleton: proves the build system, the offset-linker-script
-// target pattern, and boot_core's link (FastBoot/reset_buttons) before any
-// real SD/USB/flash logic exists. The file list below is hardcoded; it is
-// replaced by storage::AppCatalog in Phase 2.
+// Phase 2: real SD card catalog + picoboot.cfg, still a bare menu (no
+// paging/auto-boot yet -- that's Phase 5's job; this phase's goal is
+// proving the storage/config plumbing only). Flashing still not
+// implemented (Phase 3).
 
+#include "picoboot/app_catalog.h"
+#include "picoboot/config.h"
 #include "picoboot/fastboot.h"
+
+#include "pico_toolset/sdcard.h"
+#include "pico_toolset/sdcard_configs.h"
 
 #include "pico/stdlib.h"
 
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <iterator>
 
 namespace {
 
-constexpr const char* kFakeFiles[] = {"demo_a.bin", "demo_b.bin"};
+pico_toolset::SdCard g_sd_card;
+picoboot::AppCatalog g_catalog;
+picoboot::PicoBootConfig g_config;
 
 void print_menu() {
-    printf("\nPicoBoot (Phase 1 skeleton)\n");
-    for (size_t i = 0; i < std::size(kFakeFiles); ++i) {
-        printf("  %zu. %s\n", i + 1, kFakeFiles[i]);
+    printf("\nPicoBoot (Phase 2 skeleton)\n");
+    if (!g_sd_card.is_mounted()) {
+        printf("  no \xC2\xB5SD card\n");
+    } else if (g_catalog.count() == 0) {
+        printf("  (no .bin files found)\n");
+    } else {
+        auto entries = g_catalog.page(0, g_catalog.count());
+        for (size_t i = 0; i < entries.size(); ++i) {
+            printf("  %zu. %s (%lu bytes)\n", i + 1, entries[i].filename.c_str(),
+                   static_cast<unsigned long>(entries[i].size_bytes));
+        }
     }
+    printf("last_run=%s auto_boot_timeout=%lus\n", g_config.last_run_binary.c_str(),
+           static_cast<unsigned long>(g_config.auto_boot_timeout_s));
     printf("Enter a number to load, 'r' to refresh, 'reboot' to reboot.\n> ");
     fflush(stdout);
+}
+
+void refresh() {
+    if (!g_sd_card.is_mounted()) {
+        g_sd_card.init(pico_toolset::configs::sdcard::kWaveshareRp2350PiZero);
+    }
+    g_catalog.refresh(g_sd_card);
+    if (g_sd_card.is_mounted()) {
+        g_config.load();
+    }
 }
 
 } // namespace
 
 int main() {
     // First thing, before any peripheral init: check whether we're coming
-    // back from a fast-boot-tagged watchdog reboot. On this Phase 1
-    // skeleton nothing ever sets kBootApp yet (no real flashing exists),
-    // so this always falls through to full init -- but the check itself,
-    // and its link against pico_toolset_reset_buttons, is exercised here
-    // from day one rather than bolted on later.
+    // back from a fast-boot-tagged watchdog reboot (see boot_core's
+    // FastBoot doc comment). Nothing produces kBootApp yet in this phase
+    // (no real flashing exists), so this always falls through to full init.
     picoboot::BootTag tag;
-    if (picoboot::FastBoot::consume(tag)) {
-        // Only kBootApp would skip init; nothing produces it yet in
-        // Phase 1, so any tag observed here just falls through below.
-    }
+    picoboot::FastBoot::consume(tag);
 
     stdio_init_all();
     sleep_ms(2000); // let the host's CDC enumerate before the first printf
 
+    refresh();
     print_menu();
 
     char line[64];
@@ -60,12 +82,15 @@ int main() {
                 fflush(stdout);
                 picoboot::FastBoot::reboot_into_bootloader();
             } else if (line[0] == 'r' && line[1] == '\0') {
-                printf("Refresh: nothing to rescan yet (Phase 1 skeleton).\n");
+                printf("Refreshing...\n");
+                refresh();
             } else {
                 int choice = atoi(line);
-                if (choice >= 1 && static_cast<size_t>(choice) <= std::size(kFakeFiles)) {
+                const picoboot::AppBinaryEntry* entry =
+                    choice >= 1 ? g_catalog.find(static_cast<size_t>(choice - 1)) : nullptr;
+                if (entry) {
                     printf("Would load '%s' (flashing not implemented until Phase 3).\n",
-                           kFakeFiles[choice - 1]);
+                           entry->filename.c_str());
                 } else {
                     printf("Unrecognized input '%s'.\n", line);
                 }

@@ -1,6 +1,6 @@
-# Phase 1: hardcoded fake menu over stock pico_stdio_usb (single CDC). No
-# SD card, no USB composite, no real flash writing yet -- proves the build
-# skeleton and the boot_core link before layering in real logic (Phase 2+).
+# Phase 2: real SD card catalog + picoboot.cfg over stock pico_stdio_usb
+# (single CDC). USB composite (MSC+CDC) and real flash writing are still
+# Phase 3/4 work.
 add_executable(picoboot_serial
     main.cpp
 )
@@ -8,7 +8,12 @@ add_executable(picoboot_serial
 target_link_libraries(picoboot_serial PRIVATE
     pico_stdlib
     picoboot_boot_core
+    picoboot_storage
+    picoboot_config
 )
+
+include(${CMAKE_CURRENT_LIST_DIR}/../../cmake/picoboot_sdcard_stdio.cmake)
+picoboot_link_sdcard_stdio_shim(picoboot_serial)
 
 pico_enable_stdio_usb(picoboot_serial ON)
 pico_enable_stdio_uart(picoboot_serial OFF)

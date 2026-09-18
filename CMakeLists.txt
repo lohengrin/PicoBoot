@@ -29,5 +29,15 @@ pico_sdk_init()
 # component, including ones PicoBoot doesn't use).
 add_subdirectory(${TOOLSET_ROOT}/components/reset_buttons ${CMAKE_BINARY_DIR}/_toolset/reset_buttons)
 
+# SD card (Phase 2): PICO_TOOLSET_BUILD_SDCARD gates cmake/pico_fatfs.cmake
+# below (it needs the option ON before it runs). PICO_TOOLSET_SDCARD_STDIO
+# stays OFF here (see config/CMakeLists.txt for why) -- config::PicoBootConfig
+# compiles the stdio shim source directly into its own target instead.
+set(PICO_TOOLSET_BUILD_SDCARD ON)
+include(${TOOLSET_ROOT}/cmake/pico_fatfs.cmake)
+add_subdirectory(${TOOLSET_ROOT}/components/sdcard ${CMAKE_BINARY_DIR}/_toolset/sdcard)
+
 add_subdirectory(boot_core)
+add_subdirectory(storage)
+add_subdirectory(config)
 add_subdirectory(targets/picoboot_serial)
