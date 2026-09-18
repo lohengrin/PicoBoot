@@ -1,0 +1,38 @@
+#pragma once
+
+#include <cstddef>
+#include <cstdint>
+
+// Generated from cmake/picoboot_flash_layout.cmake -- that file is the
+// single source of truth for these values (also consumed by every
+// testapp's linker-script override), edit it, not this template.
+namespace picoboot {
+
+inline constexpr uint32_t kFlashXipBase = @PICOBOOT_FLASH_XIP_BASE@u;
+
+// Reserved for PicoBoot itself, sized for the *largest* UI variant
+// (picoboot_lvgl_dvi: TinyUSB CDC+MSC device stack + FatFs + dvi_hdmi +
+// a trimmed LVGL config), not the smallest (picoboot_serial) -- every
+// target app is compiled once against kAppFlashBase regardless of which
+// bootloader variant flashed it, so the boundary cannot vary per variant.
+// 512KB leaves headroom above a realistic few-hundred-KB worst case so the
+// bootloader can grow without moving the partition (which would force
+// rebuilding every existing app binary). Revisit only with real
+// picoboot_lvgl_dvi .uf2 sizes in hand (see docs/architecture.md); sector
+// aligned (4096B flash erase granularity).
+inline constexpr uint32_t kBootReserveSize = @PICOBOOT_BOOT_RESERVE_SIZE@u;
+
+inline constexpr uint32_t kAppFlashBase = kFlashXipBase + kBootReserveSize;
+
+// Flash sector-erase granularity on both RP2040 and RP2350.
+inline constexpr size_t kFlashSectorSize = @PICOBOOT_FLASH_SECTOR_SIZE@u;
+
+// Total app partition length depends on the board's total flash size,
+// which boot_core does not hard-code -- callers pass PICO_FLASH_SIZE_BYTES
+// (a pico-sdk-provided macro) into FlashWriter::check_capacity() via
+// app_partition_size(), below, rather than this header assuming one board.
+constexpr size_t app_partition_size(size_t total_flash_bytes) {
+    return total_flash_bytes - kBootReserveSize;
+}
+
+} // namespace picoboot
