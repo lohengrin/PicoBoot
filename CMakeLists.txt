@@ -16,6 +16,9 @@ if(NOT PICO_SDK_PATH)
         message(FATAL_ERROR "PICO_SDK_PATH must be set (env or -D) to build PicoBoot.")
     endif()
 endif()
+# Bootloader flash footprint is a hard constraint (see cmake/picoboot_flash_layout.cmake):
+# default to size-optimized unless the user picks a build type.
+set(CMAKE_BUILD_TYPE MinSizeRel CACHE STRING "Build type")
 include(${TOOLSET_ROOT}/pico_sdk_import.cmake)
 
 project(picoboot C CXX ASM)
@@ -39,6 +42,14 @@ add_subdirectory(${TOOLSET_ROOT}/components/sdcard ${CMAKE_BINARY_DIR}/_toolset/
 
 add_subdirectory(${TOOLSET_ROOT}/components/usb_composite ${CMAKE_BINARY_DIR}/_toolset/usb_composite)
 
+# LVGL LCD UI (Phase 6): ILI9486 panel + XPT2046 touch + LVGL bridge.
+add_subdirectory(${TOOLSET_ROOT}/components/driver_interfaces ${CMAKE_BINARY_DIR}/_toolset/driver_interfaces)
+add_subdirectory(${TOOLSET_ROOT}/components/ili9486 ${CMAKE_BINARY_DIR}/_toolset/ili9486)
+add_subdirectory(${TOOLSET_ROOT}/components/xpt2046 ${CMAKE_BINARY_DIR}/_toolset/xpt2046)
+set(LV_CONF_PATH ${CMAKE_CURRENT_LIST_DIR}/ui/lvgl/lv_conf.h)
+include(${TOOLSET_ROOT}/cmake/pico_lvgl.cmake)
+add_subdirectory(${TOOLSET_ROOT}/components/lvgl_display ${CMAKE_BINARY_DIR}/_toolset/lvgl_display)
+
 add_subdirectory(boot_core)
 add_subdirectory(storage)
 add_subdirectory(config)
@@ -46,3 +57,4 @@ add_subdirectory(app_manager)
 add_subdirectory(usb)
 add_subdirectory(ui)
 add_subdirectory(targets/picoboot_serial)
+add_subdirectory(targets/picoboot_lvgl_lcd)

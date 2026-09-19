@@ -20,3 +20,6 @@ picoboot_link_sdcard_stdio_shim(picoboot_serial)
 pico_enable_stdio_usb(picoboot_serial OFF)
 pico_enable_stdio_uart(picoboot_serial OFF)
 pico_add_extra_outputs(picoboot_serial)
+
+include(${CMAKE_CURRENT_LIST_DIR}/../../cmake/picoboot_app_linker.cmake)
+picoboot_set_bootloader_flash_region(picoboot_serial)

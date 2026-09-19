@@ -35,3 +35,20 @@ function(picoboot_set_app_flash_region TARGET TOTAL_FLASH_SIZE)
         "PICO_FLASH_SIZE_BYTES=${TOTAL_FLASH_SIZE}"
     )
 endfunction()
+
+# picoboot_set_bootloader_flash_region(TARGET)
+#
+# Constrains the *bootloader's own* FLASH region to [XIP base, reserve) so a
+# bootloader variant that outgrows PICOBOOT_BOOT_RESERVE_SIZE fails at link
+# time instead of silently overwriting the application partition.
+function(picoboot_set_bootloader_flash_region TARGET)
+    include(${PICOBOOT_APP_LINKER_CMAKE_DIR}/picoboot_flash_layout.cmake)
+    set(PICOBOOT_APP_FLASH_ORIGIN ${PICOBOOT_FLASH_XIP_BASE})
+    set(PICOBOOT_APP_FLASH_LENGTH ${PICOBOOT_BOOT_RESERVE_SIZE})
+    configure_file(
+        ${PICOBOOT_APP_LINKER_CMAKE_DIR}/../testapps/linker/picoboot_app_flash_region.template.ld
+        ${CMAKE_CURRENT_BINARY_DIR}/${TARGET}/pico_flash_region.ld
+        @ONLY
+    )
+    pico_add_linker_script_override_path(${TARGET} ${CMAKE_CURRENT_BINARY_DIR}/${TARGET} FILES pico_flash_region.ld)
+endfunction()
