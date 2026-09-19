@@ -124,12 +124,12 @@ void pump_usb() {
 #else
 void pump_usb() { picoboot::usb_bridge_task(); }
 
-// Pimoroni Pico DV Demo Base buttons A/B/C (active low). Provisional pins
-// (7 / 9 / 20) -- confirm on the carrier; see docs/architecture.md.
+// Pico DV carrier buttons A/B/C (active low, GPIO 7 / 9 / 20):
+// A = down, B = up, C = select.
 constexpr pico_toolset::LvglGpioKey kKeys[] = {
-    {7, LV_KEY_PREV},
-    {9, LV_KEY_ENTER},
-    {20, LV_KEY_NEXT},
+    {7, LV_KEY_NEXT},
+    {9, LV_KEY_PREV},
+    {20, LV_KEY_ENTER},
 };
 #endif
 
