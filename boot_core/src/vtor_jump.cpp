@@ -33,8 +33,14 @@ void relocate_vtor_and_jump(uint32_t app_flash_base) {
     ppb_hw->vtor = vector_table;
 #endif
 
+    // The application expects the state a real reset would give it, in
+    // particular PRIMASK=0: this function runs under an InterruptGuard, and
+    // nothing has enabled an interrupt since the (watchdog) reset that led
+    // here, so there is nothing pending that could reach the app's handlers
+    // before it initialises. MSP first, then unmask, then branch.
     __asm volatile(
         "msr msp, %0 \n"
+        "cpsie i \n"
         "bx  %1 \n"
         :
         : "r"(app_sp), "r"(app_reset)

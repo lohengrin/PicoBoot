@@ -34,8 +34,10 @@ pico_toolset::St7789 g_lcd;
 // while pico_fatfs sets its clock only during card init. Restore the SD clock
 // whenever the display/touch are done, before anything reads the card (this
 // hook also runs the USB stack, whose MSC reads hit the card).
+void restore_sd_bus() { spi_set_baudrate(spi1, pico_fatfs_get_clk_fast_freq()); }
+
 void release_bus_and_pump_usb() {
-    spi_set_baudrate(spi1, pico_fatfs_get_clk_fast_freq());
+    restore_sd_bus();
     picoboot::usb_bridge_task();
 }
 } // namespace
@@ -65,13 +67,14 @@ int main() {
     static pico_toolset::SdCard sd_card;
     static picoboot::AppManager manager(sd_card, picoboot::board::sd_config());
     manager.refresh();
+    picoboot::usb_bridge_set_bus_hook(restore_sd_bus); // before the host can ask for the capacity
     picoboot::usb_bridge_init(sd_card);
     pico_toolset::LvglDisplayAdapter::s_idle_hook = release_bus_and_pump_usb;
 
-    picoboot::usb_bridge_task();
+    release_bus_and_pump_usb();
     g_lcd.init(pico_toolset::configs::st7789::kElecrowCrowPanelPicoHmi28);
     g_lcd.set_backlight(255);
-    picoboot::usb_bridge_task();
+    release_bus_and_pump_usb();
     g_lcd.fill_solid(0x0000); // clear power-up noise before the first frame
 
     // Touch shares SPI1 with the panel and the SD card (separate CS lines).

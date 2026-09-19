@@ -93,6 +93,8 @@ WriteResult FlashWriter::write_image(uint32_t flash_base, size_t size, ImageRead
             BlockParams block{flash_offset + static_cast<uint32_t>(done), g_block, len, mask};
             wrote = true;
             if (!run_block(block)) return WriteResult::kFlashFailed;
+            // Read back through the XIP window: never boot an image that did not land.
+            if (std::memcmp(flash + done, g_block, len) != 0) return WriteResult::kFlashFailed;
         }
 
         done += len;
