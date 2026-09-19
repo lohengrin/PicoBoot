@@ -11,6 +11,8 @@ target_link_libraries(picoboot_lvgl_dvi PRIVATE
     picoboot_config
     picoboot_app_manager
     picoboot_usb
+    pico_toolset_usb_composite_hid  # device stack + PIO-USB host share one tusb_config
+    pico_toolset_lvgl_hid
     picoboot_ui_lvgl
     picoboot_ui_serial
     pico_toolset_dvi_hdmi

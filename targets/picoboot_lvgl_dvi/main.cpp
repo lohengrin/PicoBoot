@@ -14,6 +14,9 @@
 #include "picoboot/vtor_jump.h"
 
 #include "pico_toolset/lvgl_display.h"
+#include "pico_toolset/lvgl_hid.h"
+#include "pico_toolset/usb_hid_configs.h"
+#include "pico_toolset/usb_hid_host.h"
 #include "pico_toolset/sdcard.h"
 #include "pico_toolset/sdcard_configs.h"
 
@@ -81,6 +84,14 @@ void __not_in_flash_func(core1_entry)() {
     }
 }
 
+// Both USB roles must be serviced frequently: the device stack (MSC/CDC on
+// the native port) and the PIO-USB host (keyboard/mouse), which is polled
+// from core 0 since core 1 belongs to the DVI encoder.
+void pump_usb() {
+    picoboot::usb_bridge_task();
+    pico_toolset::UsbHidHost::task();
+}
+
 } // namespace
 
 int main() {
@@ -115,7 +126,7 @@ int main() {
     static picoboot::AppManager manager(sd_card, pico_toolset::configs::sdcard::kWaveshareRp2350PiZero);
     manager.refresh();
     picoboot::usb_bridge_init(sd_card);
-    pico_toolset::LvglDisplayAdapter::s_idle_hook = picoboot::usb_bridge_task;
+    pico_toolset::LvglDisplayAdapter::s_idle_hook = pump_usb;
 
     g_dvi.timing = &dvi_timing_640x480p_60hz;
     g_dvi.ser_cfg = pico_sock_cfg;
@@ -127,15 +138,25 @@ int main() {
     multicore_launch_core1_with_stack(core1_entry, g_core1_stack, sizeof(g_core1_stack));
     printf("PicoBoot HDMI: DVI 640x480p60, %dx%d canvas\n", kCanvasW, kCanvasH);
 
+    // Keyboard / mouse / gamepad on the PIO-USB host port. The mouse cursor
+    // range is the canvas itself, so no coordinate scaling is needed.
+    static pico_toolset::UsbHidHost hid;
+    pico_toolset::UsbHidConfig hid_config = pico_toolset::configs::usb_hid::kWaveshareRp2350PiZeroHdmi;
+    hid_config.mouse_max_x = kCanvasW - 1;
+    hid_config.mouse_max_y = kCanvasH - 1;
+    hid.init(hid_config);
+
     static pico_toolset::LvglDisplayAdapter adapter;
     adapter.init_framebuffer(g_framebuf, kCanvasW, kCanvasH,
                              {g_draw_buffer, sizeof(g_draw_buffer) / sizeof(g_draw_buffer[0])});
+
+    pico_toolset::lvgl_hid_init(hid); // before the UI builds its widgets (default focus group)
 
     static picoboot::LvglUi ui(manager, adapter, /*allow_auto_boot=*/!from_app_request);
     static picoboot::SerialUi serial_ui(manager, /*allow_auto_boot=*/false);
     while (true) {
         ui.poll();
         serial_ui.poll();
-        picoboot::usb_bridge_task();
+        pump_usb();
     }
 }

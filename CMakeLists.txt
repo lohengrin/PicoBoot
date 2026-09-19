@@ -40,6 +40,14 @@ set(PICO_TOOLSET_BUILD_SDCARD ON)
 include(${TOOLSET_ROOT}/cmake/pico_fatfs.cmake)
 add_subdirectory(${TOOLSET_ROOT}/components/sdcard ${CMAKE_BINARY_DIR}/_toolset/sdcard)
 
+# USB HID host (PIO-USB, Phase 7 keyboard/mouse on the HDMI variant). Must be
+# added *before* usb_composite so it can define its "_hid" variant.
+set(PICO_TOOLSET_BUILD_USB_HID ON)
+set(PICO_TOOLSET_USB_HID_KEYMAPS us CACHE STRING "" FORCE) # keep flash small
+set(PICO_TOOLSET_USB_HID_DEFAULT_KEYMAP us CACHE STRING "" FORCE)
+include(${TOOLSET_ROOT}/cmake/pico_pio_usb.cmake)
+add_subdirectory(${TOOLSET_ROOT}/components/usb_hid ${CMAKE_BINARY_DIR}/_toolset/usb_hid)
+
 add_subdirectory(${TOOLSET_ROOT}/components/usb_composite ${CMAKE_BINARY_DIR}/_toolset/usb_composite)
 
 # LVGL LCD UI (Phase 6): ILI9486 panel + XPT2046 touch + LVGL bridge.

@@ -10,6 +10,7 @@ target_link_libraries(picoboot_serial PRIVATE
     picoboot_config
     picoboot_app_manager
     picoboot_usb
+    pico_toolset_usb_composite
     picoboot_ui_serial
 )
 

@@ -9,6 +9,7 @@ target_link_libraries(picoboot_lvgl_lcd PRIVATE
     picoboot_config
     picoboot_app_manager
     picoboot_usb
+    pico_toolset_usb_composite
     picoboot_ui_lvgl
     picoboot_ui_serial
     pico_toolset_ili9486
