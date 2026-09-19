@@ -27,15 +27,6 @@ endif()
 include(${CMAKE_CURRENT_LIST_DIR}/../../cmake/picoboot_sdcard_stdio.cmake)
 picoboot_link_sdcard_stdio_shim(picoboot_lvgl_dvi)
 
-if(NOT PICOBOOT_BOARD STREQUAL "waveshare_pizero")
-    # RP2040 at 252 MHz: boot2's default flash SPI divider (2) would clock the
-    # flash at 126 MHz, past what these parts do reliably (flash reads/writes
-    # failed mid-image). Use divider 4 (63 MHz), as PicoDVI's own apps do.
-    pico_define_boot_stage2(picoboot_slower_boot2 ${PICO_DEFAULT_BOOT_STAGE2_FILE})
-    target_compile_definitions(picoboot_slower_boot2 PRIVATE PICO_FLASH_SPI_CLKDIV=4)
-    pico_set_boot_stage2(picoboot_lvgl_dvi picoboot_slower_boot2)
-endif()
-
 pico_enable_stdio_usb(picoboot_lvgl_dvi OFF)
 pico_enable_stdio_uart(picoboot_lvgl_dvi OFF)
 pico_add_extra_outputs(picoboot_lvgl_dvi)
