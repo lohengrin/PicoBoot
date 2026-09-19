@@ -5,6 +5,15 @@
 
 namespace picoboot {
 
+bool AppManager::refresh() {
+    m_sd_card.init(m_sd_config);
+    m_catalog.refresh(m_sd_card);
+    if (m_sd_card.is_mounted()) {
+        m_config.load();
+    }
+    return m_sd_card.is_mounted();
+}
+
 LoadResult AppManager::load_and_boot(const AppBinaryEntry& entry, const ProgressSink& sink) {
     const size_t partition_size = app_partition_size(PICO_FLASH_SIZE_BYTES);
 

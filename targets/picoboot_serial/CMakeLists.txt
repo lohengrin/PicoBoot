@@ -1,6 +1,4 @@
-# Phase 2: real SD card catalog + picoboot.cfg over stock pico_stdio_usb
-# (single CDC). USB composite (MSC+CDC) and real flash writing are still
-# Phase 3/4 work.
+# Bootloader with the serial (CDC) UI.
 add_executable(picoboot_serial
     main.cpp
 )
@@ -12,6 +10,7 @@ target_link_libraries(picoboot_serial PRIVATE
     picoboot_config
     picoboot_app_manager
     picoboot_usb
+    picoboot_ui_serial
 )
 
 include(${CMAKE_CURRENT_LIST_DIR}/../../cmake/picoboot_sdcard_stdio.cmake)

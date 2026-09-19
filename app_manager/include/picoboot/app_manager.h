@@ -9,30 +9,39 @@
 namespace picoboot {
 
 enum class LoadResult {
-    kBooting,   // flashed (or skipped as identical) and about to reboot into the app -- never returns
+    kBooting,   // never actually returned: success reboots into the app
     kTooLarge,
     kReadFailed,
 };
 
-// Orchestrates storage + config + boot_core for the "user picked an entry"
-// flow. The only layer that talks to all three -- UI never touches
-// flash/VTOR/watchdog directly, only through this.
+// Orchestrates storage + config + boot_core. The only layer that talks to
+// all three -- UI never touches flash/VTOR/watchdog directly, only through
+// this. Owns the catalog and config so every UI backend shares one view.
 class AppManager {
 public:
-    AppManager(pico_toolset::SdCard& sd_card, PicoBootConfig& config)
-        : m_sd_card(sd_card), m_config(config) {}
+    AppManager(pico_toolset::SdCard& sd_card, const pico_toolset::SdCardConfig& sd_config)
+        : m_sd_card(sd_card), m_sd_config(sd_config) {}
 
-    // Reads `entry` from the card, checks capacity, 4KB-memcmp-compares
-    // against the currently-flashed image (skipping the erase/program if
-    // identical, per spec), updates picoboot.cfg's last-run entry, and
-    // reboots into the app via FastBoot::reboot_into_app() -- which never
-    // returns. Only returns on a failure that aborts before touching flash
-    // (too large, or the file couldn't be read).
+    // (Re)mounts the card, rescans the catalog and reloads picoboot.cfg.
+    // Always remounts: a host may have changed the volume over USB MSC and
+    // FatFs caches FAT state. Returns whether a card is mounted.
+    bool refresh();
+
+    [[nodiscard]] bool card_present() const { return m_sd_card.is_mounted(); }
+    [[nodiscard]] const AppCatalog& catalog() const { return m_catalog; }
+    [[nodiscard]] const PicoBootConfig& config() const { return m_config; }
+
+    // Reads `entry`, checks capacity, 4KB-compares against the flashed
+    // image (skipping erase/program if identical), records it as last-run in
+    // picoboot.cfg and reboots into it. Only returns on failure before
+    // flash is touched.
     LoadResult load_and_boot(const AppBinaryEntry& entry, const ProgressSink& sink);
 
 private:
     pico_toolset::SdCard& m_sd_card;
-    PicoBootConfig& m_config;
+    pico_toolset::SdCardConfig m_sd_config;
+    AppCatalog m_catalog;
+    PicoBootConfig m_config;
 };
 
 } // namespace picoboot
