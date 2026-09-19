@@ -37,8 +37,11 @@ set(PICO_TOOLSET_BUILD_SDCARD ON)
 include(${TOOLSET_ROOT}/cmake/pico_fatfs.cmake)
 add_subdirectory(${TOOLSET_ROOT}/components/sdcard ${CMAKE_BINARY_DIR}/_toolset/sdcard)
 
+add_subdirectory(${TOOLSET_ROOT}/components/usb_composite ${CMAKE_BINARY_DIR}/_toolset/usb_composite)
+
 add_subdirectory(boot_core)
 add_subdirectory(storage)
 add_subdirectory(config)
 add_subdirectory(app_manager)
+add_subdirectory(usb)
 add_subdirectory(targets/picoboot_serial)

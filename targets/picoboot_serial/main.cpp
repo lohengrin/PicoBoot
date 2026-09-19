@@ -6,6 +6,7 @@
 #include "picoboot/config.h"
 #include "picoboot/fastboot.h"
 #include "picoboot/flash_layout.h"
+#include "picoboot/usb_bridge.h"
 #include "picoboot/vtor_jump.h"
 
 #include "pico_toolset/sdcard.h"
@@ -49,9 +50,9 @@ void print_menu() {
 }
 
 void refresh() {
-    if (!g_sd_card.is_mounted()) {
-        g_sd_card.init(pico_toolset::configs::sdcard::kWaveshareRp2350PiZero);
-    }
+    // Always remount: a host may have changed the FAT volume over USB MSC,
+    // and FatFs caches sector/FAT state (manual refresh, not live coherency).
+    g_sd_card.init(pico_toolset::configs::sdcard::kWaveshareRp2350PiZero);
     g_catalog.refresh(g_sd_card);
     if (g_sd_card.is_mounted()) {
         g_config.load();
@@ -70,9 +71,13 @@ int main() {
     }
 
     stdio_init_all();
-    sleep_ms(2000); // let the host's CDC enumerate before the first printf
-
     refresh();
+    picoboot::usb_bridge_init(g_sd_card);
+
+    // Let the host enumerate and open the CDC port before the first menu.
+    for (absolute_time_t end = make_timeout_time_ms(2000); !time_reached(end);) {
+        picoboot::usb_bridge_task();
+    }
     print_menu();
 
     char line[64];
