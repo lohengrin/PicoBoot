@@ -39,5 +39,5 @@ include(${CMAKE_CURRENT_LIST_DIR}/../../cmake/picoboot_app_linker.cmake)
 # The board's real total flash size -- app partition = this minus the boot reserve.
 picoboot_set_app_flash_region(app_reboot_to_bootloader ${PICOBOOT_TEST_FLASH_SIZE})
 
-target_compile_definitions(app_reboot_to_bootloader PRIVATE PICOBOOT_TEST_LED_PIN=${PICOBOOT_TEST_LED_PIN})
+picoboot_testapp_led(app_reboot_to_bootloader)
 pico_add_extra_outputs(app_reboot_to_bootloader)

@@ -7,24 +7,18 @@
 #include "picoboot/boot_tags.h"
 
 #include "pico/stdlib.h"
+#include "test_led.h"
 #include "pico_toolset/reset_buttons.h"
 
-namespace {
-#ifndef PICOBOOT_TEST_LED_PIN
-#define PICOBOOT_TEST_LED_PIN 15
-#endif
-constexpr uint kBlinkPin = PICOBOOT_TEST_LED_PIN;
-}
 
 int main() {
-    gpio_init(kBlinkPin);
-    gpio_set_dir(kBlinkPin, GPIO_OUT);
+    test_led_init();
 
     for (int i = 0; i < 6; ++i) {
-        gpio_put(kBlinkPin, i % 2);
+        test_led_set(i % 2);
         sleep_ms(150);
     }
-    gpio_put(kBlinkPin, 0);
+    test_led_set(0);
 
     pico_toolset::watchdog_reboot_with_tag(static_cast<uint32_t>(picoboot::BootTag::kReenterBootloader));
 }

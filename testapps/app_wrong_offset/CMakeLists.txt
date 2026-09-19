@@ -29,5 +29,5 @@ pico_sdk_init()
 add_executable(app_wrong_offset main.cpp)
 target_link_libraries(app_wrong_offset PRIVATE pico_stdlib)
 
-target_compile_definitions(app_wrong_offset PRIVATE PICOBOOT_TEST_LED_PIN=${PICOBOOT_TEST_LED_PIN})
+picoboot_testapp_led(app_wrong_offset)
 pico_add_extra_outputs(app_wrong_offset)

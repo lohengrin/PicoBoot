@@ -5,22 +5,16 @@
 // case), so this drives a fixed GPIO instead; probe it with a scope/meter
 // or wire an external LED when running this test.
 #include "pico/stdlib.h"
+#include "test_led.h"
 
-namespace {
-#ifndef PICOBOOT_TEST_LED_PIN
-#define PICOBOOT_TEST_LED_PIN 15
-#endif
-constexpr uint kBlinkPin = PICOBOOT_TEST_LED_PIN;
-}
 
 int main() {
-    gpio_init(kBlinkPin);
-    gpio_set_dir(kBlinkPin, GPIO_OUT);
+    test_led_init();
 
     while (true) {
-        gpio_put(kBlinkPin, 1);
+        test_led_set(1);
         sleep_ms(250);
-        gpio_put(kBlinkPin, 0);
+        test_led_set(0);
         sleep_ms(250);
     }
 }
