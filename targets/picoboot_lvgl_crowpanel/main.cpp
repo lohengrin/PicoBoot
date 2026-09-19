@@ -70,12 +70,16 @@ int main() {
     static pico_toolset::LvglDisplayAdapter adapter;
     adapter.init(g_lcd, {g_draw_buffer, sizeof(g_draw_buffer) / sizeof(g_draw_buffer[0])});
 
-    // Provisional calibration (full 12-bit range, panel-native axes): this
-    // board's touch has not been calibrated yet. Define PICO_TOOLSET_LVGL_TOUCH_DEBUG to
-    // print raw samples over serial and derive the real corner values.
+    // Calibration measured on the board: raw (x,y) is ~(279,273) at the
+    // top-left corner and ~(3785,3716) at the bottom-right, both rising
+    // toward the bottom-right (no inversion). Axis swap is assumed off --
+    // confirm with a top-right touch (expect raw x high, raw y low). Define
+    // PICO_TOOLSET_LVGL_TOUCH_DEBUG (see the target's CMakeLists.txt) to print
+    // raw and mapped coordinates over serial.
     pico_toolset::LvglTouchCalibration cal;
-    cal.raw_h_min = 200; cal.raw_h_max = 3900;
-    cal.raw_v_min = 200; cal.raw_v_max = 3900;
+    cal.swap_axes = false;
+    cal.raw_h_min = 279; cal.raw_h_max = 3785;
+    cal.raw_v_min = 273; cal.raw_v_max = 3716;
     adapter.add_touch(touch, cal);
 
     static picoboot::LvglUi ui(manager, adapter, /*allow_auto_boot=*/!from_app_request);
