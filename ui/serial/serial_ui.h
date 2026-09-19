@@ -22,6 +22,12 @@ public:
 
     void poll() override;
 
+    // Board/target-specific extra command (e.g. a hardware diagnostic): typed
+    // by name at the prompt, runs `handler` (which may block), then redraws.
+    // At most kMaxCommands; names are compared case-insensitively.
+    static constexpr size_t kMaxCommands = 4;
+    void add_command(const char* name, void (*handler)());
+
 private:
     void show_menu();
     void handle_line(const std::string& line);
@@ -29,6 +35,13 @@ private:
     void update_countdown();
     void cancel_countdown();
     static void print_progress(void* ctx, float fraction);
+
+    struct Command {
+        const char* name;
+        void (*handler)();
+    };
+    Command m_commands[kMaxCommands]{};
+    size_t m_command_count = 0;
 
     AppManager& m_manager;
     size_t m_page = 0;

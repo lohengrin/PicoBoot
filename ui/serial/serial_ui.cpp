@@ -24,6 +24,10 @@ constexpr int kBarWidth = 30;
 SerialUi::SerialUi(AppManager& manager, bool allow_auto_boot)
     : m_manager(manager), m_allow_auto_boot(allow_auto_boot) {}
 
+void SerialUi::add_command(const char* name, void (*handler)()) {
+    if (m_command_count < kMaxCommands) m_commands[m_command_count++] = {name, handler};
+}
+
 void SerialUi::show_menu() {
     const AppCatalog& catalog = m_manager.catalog();
     const size_t count = catalog.count();
@@ -55,7 +59,9 @@ void SerialUi::show_menu() {
     if (count > 0) printf(" [1-%zu] load", count);
     if (m_page + 1 < pages) printf("  [n]ext page");
     if (m_page > 0) printf("  [p]revious page");
-    printf("  [r]efresh  [reboot]  [bootsel]\n> ");
+    printf("  [r]efresh  [reboot]  [bootsel]");
+    for (size_t i = 0; i < m_command_count; ++i) printf("  [%s]", m_commands[i].name);
+    printf("\n> ");
     fflush(stdout);
 }
 
@@ -126,7 +132,14 @@ void SerialUi::handle_line(const std::string& raw) {
             printf("No entry %s.\n", line.c_str());
         }
     } else {
-        printf("Unrecognized input '%s'.\n", raw.c_str());
+        bool handled = false;
+        for (size_t i = 0; i < m_command_count && !handled; ++i) {
+            if (line == lower(m_commands[i].name)) {
+                m_commands[i].handler();
+                handled = true;
+            }
+        }
+        if (!handled) printf("Unrecognized input '%s'.\n", raw.c_str());
     }
     show_menu();
 }

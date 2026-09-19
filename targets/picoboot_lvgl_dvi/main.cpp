@@ -126,6 +126,44 @@ void pump_usb() { picoboot::usb_bridge_task(); }
 
 // Pico DV carrier buttons A/B/C (active low, GPIO 7 / 9 / 20):
 // A = down, B = up, C = select.
+// Diagnostic ("buttons" serial command): reports which free GPIO changes when
+// a button is pressed, for carriers whose button pins are not documented.
+// Scans only pins the carrier's HDMI/SD/I2S/wireless wiring leaves free, first
+// with pull-ups (buttons to ground) and then with pull-downs (buttons to 3V3).
+void scan_buttons() {
+    static const uint8_t candidates[] = {0, 1, 2, 3, 4, 14, 15, 16, 17, 20, 21};
+    constexpr size_t kCount = sizeof(candidates);
+    for (int phase = 0; phase < 2; ++phase) {
+        const bool pull_up = phase == 0;
+        printf("\nButton scan, pins pulled %s: press and release each button (10 s)...\n",
+               pull_up ? "UP (button to GND)" : "DOWN (button to 3V3)");
+        bool last[kCount];
+        for (size_t i = 0; i < kCount; ++i) {
+            gpio_init(candidates[i]);
+            gpio_set_dir(candidates[i], GPIO_IN);
+            if (pull_up) gpio_pull_up(candidates[i]); else gpio_pull_down(candidates[i]);
+        }
+        sleep_ms(20);
+        for (size_t i = 0; i < kCount; ++i) last[i] = gpio_get(candidates[i]);
+        for (absolute_time_t end = make_timeout_time_ms(10000); !time_reached(end);) {
+            for (size_t i = 0; i < kCount; ++i) {
+                const bool now = gpio_get(candidates[i]);
+                if (now != last[i]) {
+                    printf("  GPIO %u: %d -> %d\n", candidates[i], last[i], now);
+                    last[i] = now;
+                }
+            }
+            pump_usb();
+            sleep_ms(2);
+        }
+        for (size_t i = 0; i < kCount; ++i) {
+            gpio_disable_pulls(candidates[i]);
+            gpio_deinit(candidates[i]);
+        }
+    }
+    printf("Scan finished.\n");
+}
+
 constexpr pico_toolset::LvglGpioKey kKeys[] = {
     {7, LV_KEY_NEXT},
     {9, LV_KEY_PREV},
@@ -202,6 +240,9 @@ int main() {
 
     static picoboot::LvglUi ui(manager, adapter, /*allow_auto_boot=*/!from_app_request);
     static picoboot::SerialUi serial_ui(manager, /*allow_auto_boot=*/false);
+#if !PICO_RP2350
+    serial_ui.add_command("buttons", scan_buttons);
+#endif
     while (true) {
         ui.poll();
         serial_ui.poll();
