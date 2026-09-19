@@ -5,6 +5,8 @@
 #include "picoboot/app_manager.h"
 #include "picoboot/config.h"
 #include "picoboot/fastboot.h"
+#include "picoboot/flash_layout.h"
+#include "picoboot/vtor_jump.h"
 
 #include "pico_toolset/sdcard.h"
 #include "pico_toolset/sdcard_configs.h"
@@ -61,10 +63,11 @@ void refresh() {
 int main() {
     // First thing, before any peripheral init: check whether we're coming
     // back from a fast-boot-tagged watchdog reboot (see boot_core's
-    // FastBoot doc comment). Nothing produces kBootApp yet in this phase
-    // (no real flashing exists), so this always falls through to full init.
+    // FastBoot doc comment). kBootApp is the only tag that skips init.
     picoboot::BootTag tag;
-    picoboot::FastBoot::consume(tag);
+    if (picoboot::FastBoot::consume(tag) && tag == picoboot::BootTag::kBootApp) {
+        picoboot::relocate_vtor_and_jump(picoboot::kAppFlashBase);
+    }
 
     stdio_init_all();
     sleep_ms(2000); // let the host's CDC enumerate before the first printf
