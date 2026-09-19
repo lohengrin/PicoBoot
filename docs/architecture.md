@@ -189,9 +189,10 @@ Boards are selected at configure time (`-DPICOBOOT_BOARD=...`, one build directo
 | `crowpanel_pico_hmi_28` | RP2040 | serial, LVGL on the built-in ST7789 | touch | 420 KB / 114 KB of 264 KB |
 | `pico_dv` (Pico W on Pico DV) | RP2040 | serial, LVGL on HDMI (320x240 **RGB332**, half the RAM) | 3 buttons as keypad (provisional pins 7/9/20) | 419 KB / 189 KB of 264 KB |
 
-Hardware still to validate: CrowPanel touch calibration (provisional; define
-`PICO_TOOLSET_LVGL_TOUCH_DEBUG` to print raw samples), Pico DV button pins and
-HDMI output, and 252 MHz on RP2040.
+Hardware still to validate: Pico DV button pins and HDMI output, and 252 MHz on
+RP2040. CrowPanel: the SD card, panel and touch share SPI1, whose clock the
+display/touch drivers change -- the target restores the SD clock after every
+screen/touch access (`release_bus_and_pump_usb`).
 
 All builds expose USB CDC serial + MSC (the SD card) + the picotool reset
 interface (`picotool reboot -f -u` / `load -f` work without BOOTSEL; PID

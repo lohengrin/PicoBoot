@@ -17,6 +17,9 @@
 #include "pico_toolset/xpt2046.h"
 #include "pico_toolset/xpt2046_configs.h"
 
+#include "tf_card.h"
+
+#include "hardware/spi.h"
 #include "pico/stdlib.h"
 
 #include <cstdio>
@@ -25,6 +28,16 @@ namespace {
 constexpr size_t kDrawRows = 30;
 alignas(64) uint16_t g_draw_buffer[320 * kDrawRows];
 pico_toolset::St7789 g_lcd;
+
+// The SD card shares SPI1 with the panel and the touch controller, and their
+// drivers change the bus clock (62.5 MHz pixel pushes, 2 MHz touch reads)
+// while pico_fatfs sets its clock only during card init. Restore the SD clock
+// whenever the display/touch are done, before anything reads the card (this
+// hook also runs the USB stack, whose MSC reads hit the card).
+void release_bus_and_pump_usb() {
+    spi_set_baudrate(spi1, pico_fatfs_get_clk_fast_freq());
+    picoboot::usb_bridge_task();
+}
 } // namespace
 
 extern "C" void picoboot_lvgl_assert(void) {
@@ -53,7 +66,7 @@ int main() {
     static picoboot::AppManager manager(sd_card, picoboot::board::sd_config());
     manager.refresh();
     picoboot::usb_bridge_init(sd_card);
-    pico_toolset::LvglDisplayAdapter::s_idle_hook = picoboot::usb_bridge_task;
+    pico_toolset::LvglDisplayAdapter::s_idle_hook = release_bus_and_pump_usb;
 
     picoboot::usb_bridge_task();
     g_lcd.init(pico_toolset::configs::st7789::kElecrowCrowPanelPicoHmi28);
@@ -71,12 +84,9 @@ int main() {
     adapter.init(g_lcd, {g_draw_buffer, sizeof(g_draw_buffer) / sizeof(g_draw_buffer[0])});
 
     // Calibration measured on the board. The controller's axes are swapped
-    // relative to the panel (moving vertically changes raw x), and neither is
+    // relative to the panel (moving vertically changes raw x) and neither is
     // inverted: both raw values are lowest at the top-left corner. With the
     // swap, horizontal = raw y (~254..3707) and vertical = raw x (~278..3769).
-    // Define PICO_TOOLSET_LVGL_TOUCH_DEBUG (see the target's CMakeLists.txt) to
-    // print raw and mapped coordinates over serial and show a dot at LVGL's
-    // touch point.
     pico_toolset::LvglTouchCalibration cal;
     cal.swap_axes = true;
     cal.raw_h_min = 254; cal.raw_h_max = 3707;
@@ -88,6 +98,6 @@ int main() {
     while (true) {
         ui.poll();
         serial_ui.poll();
-        picoboot::usb_bridge_task();
+        release_bus_and_pump_usb();
     }
 }
