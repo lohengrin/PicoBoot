@@ -4,7 +4,9 @@
 #include "picoboot/flash_layout.h"
 #include "picoboot/image_check.h"
 
+#include <cerrno>
 #include <cstdio>
+#include <sys/stat.h>
 
 namespace picoboot {
 
@@ -28,27 +30,30 @@ bool read_from_file(void* ctx, uint8_t* buf, size_t len) {
 LoadResult AppManager::load_and_boot(const AppBinaryEntry& entry, const ProgressSink& sink) {
     const size_t partition_size = app_partition_size(PICO_FLASH_SIZE_BYTES);
 
+    // The file's real size (the catalog's may be stale if the host changed it).
+    struct stat st{};
+    if (stat(entry.filename.c_str(), &st) != 0 || st.st_size <= 0) {
+        printf("load: stat('%s') failed (errno %d)\n", entry.filename.c_str(), errno);
+        return LoadResult::kReadFailed;
+    }
+    const long file_size = static_cast<long>(st.st_size);
+    if (FlashWriter::check_capacity(static_cast<size_t>(file_size), partition_size) == FlashResult::kTooLarge) {
+        return LoadResult::kTooLarge;
+    }
+
     // Streamed from the card: RAM use is one 16 KiB block, not the image.
     FILE* file = fopen(entry.filename.c_str(), "rb");
     if (!file) {
+        printf("load: fopen('%s') failed (errno %d)\n", entry.filename.c_str(), errno);
         return LoadResult::kReadFailed;
-    }
-    // The file's real size (the catalog's may be stale if the host changed it).
-    fseek(file, 0, SEEK_END);
-    const long file_size = ftell(file);
-    rewind(file);
-    if (file_size <= 0) {
-        fclose(file);
-        return LoadResult::kReadFailed;
-    }
-    if (FlashWriter::check_capacity(static_cast<size_t>(file_size), partition_size) == FlashResult::kTooLarge) {
-        fclose(file);
-        return LoadResult::kTooLarge;
     }
 
     // Sanity-check the vector table (first bytes of the file) before touching flash.
     uint8_t head[kVectorTableOffset + 8];
-    if (fread(head, 1, sizeof(head), file) != sizeof(head)) {
+    const size_t head_read = fread(head, 1, sizeof(head), file);
+    if (head_read != sizeof(head)) {
+        printf("load: reading the header of '%s' failed (%u of %u bytes, errno %d)\n", entry.filename.c_str(),
+               static_cast<unsigned>(head_read), static_cast<unsigned>(sizeof(head)), errno);
         fclose(file);
         return LoadResult::kReadFailed;
     }
@@ -56,12 +61,18 @@ LoadResult AppManager::load_and_boot(const AppBinaryEntry& entry, const Progress
         fclose(file);
         return LoadResult::kInvalidImage;
     }
-    rewind(file);
+    if (fseek(file, 0, SEEK_SET) != 0) {
+        printf("load: rewinding '%s' failed (errno %d)\n", entry.filename.c_str(), errno);
+        fclose(file);
+        return LoadResult::kReadFailed;
+    }
 
     const WriteResult result = FlashWriter::write_image(kAppFlashBase, static_cast<size_t>(file_size), read_from_file, file, sink);
     fclose(file);
     switch (result) {
-        case WriteResult::kReadFailed: return LoadResult::kReadFailed;
+        case WriteResult::kReadFailed:
+            printf("load: reading '%s' failed while streaming (errno %d)\n", entry.filename.c_str(), errno);
+            return LoadResult::kReadFailed;
         case WriteResult::kFlashFailed: return LoadResult::kFlashFailed;
         case WriteResult::kOk: break;
     }
