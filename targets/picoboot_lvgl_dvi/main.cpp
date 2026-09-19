@@ -124,8 +124,13 @@ void pump_usb() {
 #else
 void pump_usb() { picoboot::usb_bridge_task(); }
 
-// Pico DV carrier buttons A/B/C (active low, GPIO 7 / 9 / 20):
-// A = down, B = up, C = select.
+// Pico DV carrier buttons: A = GP14 (down), B = GP15 (up), C = GP16 (select).
+constexpr pico_toolset::LvglGpioKey kKeys[] = {
+    {14, LV_KEY_NEXT},
+    {15, LV_KEY_PREV},
+    {16, LV_KEY_ENTER},
+};
+
 // Diagnostic ("buttons" serial command): reports which free GPIO changes when
 // a button is pressed, for carriers whose button pins are not documented.
 // Scans only pins the carrier's HDMI/SD/I2S/wireless wiring leaves free, first
@@ -163,12 +168,6 @@ void scan_buttons() {
     }
     printf("Scan finished.\n");
 }
-
-constexpr pico_toolset::LvglGpioKey kKeys[] = {
-    {7, LV_KEY_NEXT},
-    {9, LV_KEY_PREV},
-    {20, LV_KEY_ENTER},
-};
 #endif
 
 } // namespace
@@ -235,7 +234,8 @@ int main() {
     pico_toolset::lvgl_hid_init(hid); // before the UI builds its widgets (default focus group)
 #else
     adapter.init_framebuffer_rgb332(g_framebuf, kCanvasW, kCanvasH, draw);
-    pico_toolset::lvgl_gpio_keys_init({kKeys, sizeof(kKeys) / sizeof(kKeys[0]), /*active_low=*/true});
+    pico_toolset::lvgl_gpio_keys_init(
+        {kKeys, sizeof(kKeys) / sizeof(kKeys[0]), pico_toolset::LvglGpioKeyPolarity::kAuto});
 #endif
 
     static picoboot::LvglUi ui(manager, adapter, /*allow_auto_boot=*/!from_app_request);

@@ -187,7 +187,7 @@ Boards are selected at configure time (`-DPICOBOOT_BOARD=...`, one build directo
 |---|---|---|---|---|
 | `waveshare_pizero` (default) | RP2350 | serial, LCD (external ILI9486), HDMI | touch (LCD); USB kbd/mouse/pad (HDMI) | up to 434 KB / 327 KB of 520 KB |
 | `crowpanel_pico_hmi_28` | RP2040 | serial, LVGL on the built-in ST7789 | touch | 420 KB / 114 KB of 264 KB |
-| `pico_dv` (Pico W on Pico DV) | RP2040 | serial, LVGL on HDMI (320x240 **RGB332**, half the RAM) | 3 buttons as keypad (A down, B up, C select; GPIO 7/9/20) | 419 KB / 189 KB of 264 KB |
+| `pico_dv` (Pico W on Pico DV) | RP2040 | serial, LVGL on HDMI (320x240 **RGB332**, half the RAM) | 3 buttons as keypad (A down, B up, C select; GPIO 14/15/16, polarity auto-detected) | 419 KB / 189 KB of 264 KB |
 
 Pico DV HDMI output and 252 MHz on RP2040 are validated on hardware. CrowPanel: the SD card, panel and touch share SPI1, whose clock the
 display/touch drivers change -- the target restores the SD clock after every
