@@ -70,16 +70,17 @@ int main() {
     static pico_toolset::LvglDisplayAdapter adapter;
     adapter.init(g_lcd, {g_draw_buffer, sizeof(g_draw_buffer) / sizeof(g_draw_buffer[0])});
 
-    // Calibration measured on the board: raw (x,y) spans ~279..3785 by
-    // ~273..3716, but both axes read inverted relative to the panel (raw is
-    // *low* at the physical bottom-right), so min/max are swapped. Axis swap
-    // is off. Define PICO_TOOLSET_LVGL_TOUCH_DEBUG (see the target's
-    // CMakeLists.txt) to print raw and mapped coordinates over serial and show
-    // a dot at LVGL's touch point.
+    // Calibration measured on the board. The controller's axes are swapped
+    // relative to the panel (moving vertically changes raw x), and neither is
+    // inverted: both raw values are lowest at the top-left corner. With the
+    // swap, horizontal = raw y (~254..3707) and vertical = raw x (~278..3769).
+    // Define PICO_TOOLSET_LVGL_TOUCH_DEBUG (see the target's CMakeLists.txt) to
+    // print raw and mapped coordinates over serial and show a dot at LVGL's
+    // touch point.
     pico_toolset::LvglTouchCalibration cal;
-    cal.swap_axes = false;
-    cal.raw_h_min = 3785; cal.raw_h_max = 279;
-    cal.raw_v_min = 3716; cal.raw_v_max = 273;
+    cal.swap_axes = true;
+    cal.raw_h_min = 254; cal.raw_h_max = 3707;
+    cal.raw_v_min = 278; cal.raw_v_max = 3769;
     adapter.add_touch(touch, cal);
 
     static picoboot::LvglUi ui(manager, adapter, /*allow_auto_boot=*/!from_app_request);
