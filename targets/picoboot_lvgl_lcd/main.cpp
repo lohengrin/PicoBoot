@@ -2,6 +2,7 @@
 // ILI9486 LCD + XPT2046 touch.
 
 #include "lvgl_ui.h"
+#include "serial_ui.h"
 
 #include "picoboot/app_manager.h"
 #include "picoboot/fastboot.h"
@@ -56,8 +57,12 @@ int main() {
     static picoboot::AppManager manager(sd_card, pico_toolset::configs::sdcard::kWaveshareRp2350PiZero);
     manager.refresh();
     picoboot::usb_bridge_init(sd_card);
+    // Keep the USB device serviced even while a long redraw/flash is going on.
+    pico_toolset::LvglDisplayAdapter::s_idle_hook = picoboot::usb_bridge_task;
 
+    picoboot::usb_bridge_task();
     g_lcd.init(pico_toolset::configs::ili9486::kWaveshareRp2350PiZero);
+    picoboot::usb_bridge_task();
     g_lcd.fill_solid(0x001F); // blue: proves the panel path before LVGL draws anything
     printf("PicoBoot LVGL: panel ok\n");
     static pico_toolset::Xpt2046Touch touch;
@@ -69,9 +74,13 @@ int main() {
     adapter.add_touch(touch, {cal.swap_axes, cal.raw_h_min, cal.raw_h_max, cal.raw_v_min, cal.raw_v_max});
     printf("PicoBoot LVGL: adapter ok\n");
 
+    // Both UIs run side by side: the LCD is the primary one (owns the
+    // auto-boot countdown); the serial menu stays fully usable over CDC.
     static picoboot::LvglUi ui(manager, adapter, /*allow_auto_boot=*/!from_app_request);
+    static picoboot::SerialUi serial_ui(manager, /*allow_auto_boot=*/false);
     while (true) {
         ui.poll();
+        serial_ui.poll();
         picoboot::usb_bridge_task();
     }
 }
