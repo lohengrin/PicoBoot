@@ -10,6 +10,7 @@
 
 #include "pico_toolset/sdcard.h"
 #include "pico_toolset/sdcard_configs.h"
+#include "board.h"
 
 #include "pico/stdlib.h"
 
@@ -28,7 +29,7 @@ int main() {
     stdio_init_all();
 
     static pico_toolset::SdCard sd_card;
-    static picoboot::AppManager manager(sd_card, pico_toolset::configs::sdcard::kWaveshareRp2350PiZero);
+    static picoboot::AppManager manager(sd_card, picoboot::board::sd_config());
     manager.refresh();
     picoboot::usb_bridge_init(sd_card);
 

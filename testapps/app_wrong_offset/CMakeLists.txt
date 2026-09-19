@@ -9,9 +9,8 @@
 # run" path (Phase 3), without conflating it with any other new code.
 cmake_minimum_required(VERSION 3.20)
 
-set(PICO_BOARD waveshare_rp2350_pizero CACHE STRING "")
+include(${CMAKE_CURRENT_LIST_DIR}/../../cmake/picoboot_testapp_board.cmake)
 list(APPEND PICO_BOARD_HEADER_DIRS ${CMAKE_CURRENT_LIST_DIR}/../../third_party/pico-toolset/boards)
-set(PICO_PLATFORM rp2350 CACHE STRING "" FORCE)
 
 if(NOT PICO_SDK_PATH)
     if(DEFINED ENV{PICO_SDK_PATH})
@@ -30,4 +29,5 @@ pico_sdk_init()
 add_executable(app_wrong_offset main.cpp)
 target_link_libraries(app_wrong_offset PRIVATE pico_stdlib)
 
+target_compile_definitions(app_wrong_offset PRIVATE PICOBOOT_TEST_LED_PIN=${PICOBOOT_TEST_LED_PIN})
 pico_add_extra_outputs(app_wrong_offset)

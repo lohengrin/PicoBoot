@@ -7,7 +7,10 @@
 #include "pico/stdlib.h"
 
 namespace {
-constexpr uint kBlinkPin = 15;
+#ifndef PICOBOOT_TEST_LED_PIN
+#define PICOBOOT_TEST_LED_PIN 15
+#endif
+constexpr uint kBlinkPin = PICOBOOT_TEST_LED_PIN;
 }
 
 int main() {

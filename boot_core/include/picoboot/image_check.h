@@ -8,8 +8,8 @@ namespace picoboot {
 // Offset from an app's flash base to its real vector table. pico-sdk only
 // force-links a .boot2 stub ahead of the vector table on RP2040 (256 bytes,
 // exactly); RP2350 has none -- confirmed on a real built RP2350 .bin, its
-// vector table sits at +0x0. TODO(Phase 8): verify the RP2040 value the
-// same way before relying on it.
+// vector table sits at +0x0. RP2040 value (0x100) confirmed on a real
+// RP2040 build of testapps/app_blink: SP 0x20042000 / reset 0x100801f7 at +0x100.
 #if PICO_RP2350
 inline constexpr uint32_t kVectorTableOffset = 0x0u;
 #else

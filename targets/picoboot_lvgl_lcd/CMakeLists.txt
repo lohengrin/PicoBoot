@@ -1,6 +1,7 @@
 # Bootloader with the LVGL UI on the external 3.5" ILI9486 LCD + XPT2046
 # touch (Waveshare RP2350-PiZero + LCD35A, see Pico-Toolset boards/).
 add_executable(picoboot_lvgl_lcd main.cpp)
+target_include_directories(picoboot_lvgl_lcd PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../common)
 
 target_link_libraries(picoboot_lvgl_lcd PRIVATE
     pico_stdlib

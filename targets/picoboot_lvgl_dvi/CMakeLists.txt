@@ -2,6 +2,7 @@
 # HDMI/DVI output (PIO-driven TMDS, encoded on core 1). No touch panel on
 # this variant; the serial UI runs alongside for control.
 add_executable(picoboot_lvgl_dvi main.cpp)
+target_include_directories(picoboot_lvgl_dvi PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../common)
 
 target_link_libraries(picoboot_lvgl_dvi PRIVATE
     pico_stdlib

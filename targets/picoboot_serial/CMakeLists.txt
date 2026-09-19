@@ -2,6 +2,7 @@
 add_executable(picoboot_serial
     main.cpp
 )
+target_include_directories(picoboot_serial PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../common)
 
 target_link_libraries(picoboot_serial PRIVATE
     pico_stdlib

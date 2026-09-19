@@ -6,10 +6,9 @@
 # never drift out of sync between the two.
 cmake_minimum_required(VERSION 3.20)
 
-set(PICO_BOARD waveshare_rp2350_pizero CACHE STRING "")
+include(${CMAKE_CURRENT_LIST_DIR}/../../cmake/picoboot_testapp_board.cmake)
 set(TOOLSET_ROOT ${CMAKE_CURRENT_LIST_DIR}/../../third_party/pico-toolset)
 list(APPEND PICO_BOARD_HEADER_DIRS ${TOOLSET_ROOT}/boards)
-set(PICO_PLATFORM rp2350 CACHE STRING "" FORCE)
 
 if(NOT PICO_SDK_PATH)
     if(DEFINED ENV{PICO_SDK_PATH})
@@ -37,8 +36,8 @@ target_include_directories(app_reboot_to_bootloader PRIVATE
 )
 
 include(${CMAKE_CURRENT_LIST_DIR}/../../cmake/picoboot_app_linker.cmake)
-# Waveshare RP2350-PiZero's real total flash size (see its board header's
-# PICO_FLASH_SIZE_BYTES) -- app partition = this minus the boot reserve.
-picoboot_set_app_flash_region(app_reboot_to_bootloader 16777216)
+# The board's real total flash size -- app partition = this minus the boot reserve.
+picoboot_set_app_flash_region(app_reboot_to_bootloader ${PICOBOOT_TEST_FLASH_SIZE})
 
+target_compile_definitions(app_reboot_to_bootloader PRIVATE PICOBOOT_TEST_LED_PIN=${PICOBOOT_TEST_LED_PIN})
 pico_add_extra_outputs(app_reboot_to_bootloader)

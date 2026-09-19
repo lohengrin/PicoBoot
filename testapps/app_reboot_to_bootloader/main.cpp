@@ -10,7 +10,10 @@
 #include "pico_toolset/reset_buttons.h"
 
 namespace {
-constexpr uint kBlinkPin = 15; // see app_blink's main.cpp: no plain LED on this board
+#ifndef PICOBOOT_TEST_LED_PIN
+#define PICOBOOT_TEST_LED_PIN 15
+#endif
+constexpr uint kBlinkPin = PICOBOOT_TEST_LED_PIN;
 }
 
 int main() {
