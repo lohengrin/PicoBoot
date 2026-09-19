@@ -21,6 +21,7 @@ namespace {
 constexpr size_t kBlockBytes = 4 * kFlashSectorSize;
 uint8_t g_block[kBlockBytes]; // the only RAM the image streaming needs
 size_t g_failure_offset = 0;
+int g_failure_code = 0;
 
 struct BlockParams {
     uint32_t flash_offset;  // of the block
@@ -61,7 +62,8 @@ void do_program_block(void* raw_params) {
 
 bool run_block(BlockParams& params) {
     if (multicore_lockout_ready()) {
-        return flash_safe_execute(do_program_block, &params, 5000) == PICO_OK;
+        g_failure_code = flash_safe_execute(do_program_block, &params, 5000);
+        return g_failure_code == PICO_OK;
     }
     InterruptGuard guard;
     do_program_block(&params);
@@ -71,6 +73,7 @@ bool run_block(BlockParams& params) {
 } // namespace
 
 size_t FlashWriter::failure_offset() { return g_failure_offset; }
+int FlashWriter::failure_code() { return g_failure_code; }
 
 WriteResult FlashWriter::write_image(uint32_t flash_base, size_t size, ImageReader read, void* read_ctx,
                                      const ProgressSink& sink) {

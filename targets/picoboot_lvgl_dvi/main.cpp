@@ -99,6 +99,11 @@ void __not_in_flash_func(core1_entry)() {
     // per 16 KiB block while flashing; the encoder does not use the raw
     // inter-core FIFO, so the lockout handler owning it is safe.
     flash_safe_execute_core_init();
+    // The "park this core" request arrives on the SIO FIFO interrupt. The
+    // encoder's DMA interrupt fires once per scanline and is lower-numbered
+    // (so wins ties at equal priority): on the RP2040 it can starve the
+    // request until flash_safe_execute() times out. Make the request outrank it.
+    irq_set_priority(SIO_FIFO_IRQ_NUM(get_core_num()), 0);
     dvi_register_irqs_this_core(&g_dvi, DMA_IRQ_0);
     dvi_start(&g_dvi);
     int row = 0;

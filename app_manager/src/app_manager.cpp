@@ -74,8 +74,8 @@ LoadResult AppManager::load_and_boot(const AppBinaryEntry& entry, const Progress
             printf("load: reading '%s' failed while streaming (errno %d)\n", entry.filename.c_str(), errno);
             return LoadResult::kReadFailed;
         case WriteResult::kFlashFailed:
-            printf("load: flash critical section failed at image offset 0x%X (the other core did not park?)\n",
-                   static_cast<unsigned>(FlashWriter::failure_offset()));
+            printf("load: flash critical section failed at image offset 0x%X, error %d (-2 timeout: the other core did not park)\n",
+                   static_cast<unsigned>(FlashWriter::failure_offset()), FlashWriter::failure_code());
             return LoadResult::kFlashFailed;
         case WriteResult::kVerifyFailed:
             printf("load: verify failed at image offset 0x%X (flash read-back differs from the file)\n",

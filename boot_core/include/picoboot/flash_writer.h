@@ -61,6 +61,8 @@ public:
     // is partially written and MUST NOT be booted.
     // Byte offset (into the image) of the block that failed, after a failure.
     [[nodiscard]] static size_t failure_offset();
+    // pico error code of the failed flash_safe_execute() (-2 timeout, -4 not permitted, ...).
+    [[nodiscard]] static int failure_code();
 
     [[nodiscard]] static WriteResult write_image(uint32_t flash_base, size_t size, ImageReader read,
                                                  void* read_ctx, const ProgressSink& sink);
