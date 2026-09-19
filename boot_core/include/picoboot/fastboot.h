@@ -18,6 +18,15 @@ public:
     // (FastBoot::consume() will return kBootApp). Never returns.
     [[noreturn]] static void reboot_into_app();
 
+    // Same, for a normal build that must be launched through flash address
+    // translation (BootTag::kBootAppRemapped, RP2350 only).
+    [[noreturn]] static void reboot_into_app_remapped();
+
+    // Call first thing in main() with the tag from consume(): if it asks for
+    // the application to be started, does so and never returns; otherwise
+    // returns and the full bootloader proceeds.
+    static void boot_app_if_tagged(BootTag tag);
+
     // Reboots back to the full bootloader UI (equivalent to a cold boot,
     // distinguished only for a possible future "returned from app" banner).
     // Never returns.

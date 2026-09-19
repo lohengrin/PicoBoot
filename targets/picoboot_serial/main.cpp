@@ -20,9 +20,7 @@ int main() {
     picoboot::BootTag tag;
     bool from_app_request = false;
     if (picoboot::FastBoot::consume(tag)) {
-        if (tag == picoboot::BootTag::kBootApp) {
-            picoboot::relocate_vtor_and_jump(picoboot::kAppFlashBase);
-        }
+        picoboot::FastBoot::boot_app_if_tagged(tag);
         from_app_request = (tag == picoboot::BootTag::kReenterBootloader);
     }
 

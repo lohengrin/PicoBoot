@@ -14,7 +14,7 @@ constexpr size_t kMaxListEntries = 250;
 constexpr int kHeaderHeightWide = 36;
 constexpr int kHeaderHeightNarrow = 46; // title over subtitle
 constexpr int kNarrowWidth = 400;
-constexpr int kStatusHeight = 22;
+constexpr int kStatusHeight = 34; // two lines: error messages wrap
 } // namespace
 
 struct LvglUiCallbacks {
@@ -106,13 +106,13 @@ void LvglUi::build() {
 
     m_status = lv_label_create(scr);
     lv_obj_set_size(m_status, w - 8, kStatusHeight);
-    lv_obj_set_pos(m_status, 4, h - kStatusHeight + 3);
-    lv_label_set_long_mode(m_status, LV_LABEL_LONG_DOT);
+    lv_obj_set_pos(m_status, 4, h - kStatusHeight + 2);
+    lv_label_set_long_mode(m_status, LV_LABEL_LONG_WRAP);
     lv_label_set_text(m_status, "");
 
     m_bar = lv_bar_create(scr);
     lv_obj_set_size(m_bar, w - 8, 14);
-    lv_obj_set_pos(m_bar, 4, h - kStatusHeight + 4);
+    lv_obj_set_pos(m_bar, 4, h - kStatusHeight + 10);
     lv_bar_set_range(m_bar, 0, 100);
     lv_obj_add_flag(m_bar, LV_OBJ_FLAG_HIDDEN);
 
@@ -215,14 +215,8 @@ void LvglUi::load(size_t index) {
 
     const ProgressSink sink{on_progress, this};
     const LoadResult result = m_manager.load_and_boot(*entry, sink);
-    if (result == LoadResult::kTooLarge) {
-        set_status("Error: '" + entry->filename + "' does not fit in the application partition", true);
-    } else if (result == LoadResult::kReadFailed) {
-        set_status("Error: could not read '" + entry->filename + "'", true);
-    } else if (result == LoadResult::kInvalidImage) {
-        set_status("Error: '" + entry->filename + "' was not built for the application partition", true);
-    } else if (result == LoadResult::kFlashFailed) {
-        set_status("Error: flashing failed, application partition is not bootable", true);
+    if (result != LoadResult::kBooting) {
+        set_status("Error: " + m_manager.last_error_short(), true);
     }
 }
 

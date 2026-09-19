@@ -13,8 +13,13 @@ brings the menu back.
   compares each 4 KiB sector with what is already in flash and rewrites **only the sectors that differ** —
   re-loading an identical image writes nothing. Every block is read back and verified; a failed image is
   never booted.
-- **Refuses images that were not linked for the partition** (checks the stack pointer and reset vector),
-  and images larger than the partition.
+- **Inspects every image before touching flash**, from the `.bin` itself: which **chip family** it was built
+  for (RP2040 boot stage checksum / RP2350 image definition), whether it is an Arm image, and **where it was
+  linked** (from the reset vector). Anything it cannot run is refused with a clear message on the screen
+  and on serial (wrong chip, RISC-V, not an app image, linked for an unsupported address, too large).
+- **Normal builds run unmodified on RP2350:** an application linked normally (at `0x10000000`) is detected
+  and started through the flash controller's address translation. RP2040 apps are linked for the partition
+  (see below).
 - **USB composite device:** the SD card appears as a **mass-storage drive** (drag and drop apps while the
   UI stays up), plus a **CDC serial** port and the **picotool reset interface** — `picotool load -f` /
   `reboot -f -u` work without touching BOOTSEL.
@@ -141,20 +146,30 @@ auto_boot_timeout=30
 
 ## Making an application that PicoBoot can run
 
-Apps are ordinary Pico SDK programs with two differences.
+PicoBoot reads the `.bin` and decides how to start it, so there are two kinds of application:
 
-1. **They are linked into the application partition**, not at flash offset 0. The partition starts at
-   `0x10080000` (512 KiB after the flash base; defined once in `cmake/picoboot_flash_layout.cmake`). Use the
-   helper:
+| Application | Build | RP2350 | RP2040 |
+|---|---|---|---|
+| **Normal build** (linked at `0x10000000`, as any Pico SDK project) | nothing special | runs (started through flash address translation) | **refused** — the RP2040 cannot map flash to another address |
+| **Partition build** (linked at `0x10080000`) | link for the partition, below | runs | runs |
 
-   ```cmake
-   include(/path/to/PicoBoot/cmake/picoboot_app_linker.cmake)
-   # second argument: the board's total flash size in bytes
-   picoboot_set_app_flash_region(my_app 16777216)
-   pico_add_extra_outputs(my_app)     # produces my_app.bin
-   ```
+Either way the file to put on the card is the raw **`.bin`** (not the `.uf2`) — the file objcopy produces from the
+ELF. Only apps built for the chip the bootloader runs on are accepted, and only Arm images (not RP2350 RISC-V).
 
-2. **They are delivered as the raw `.bin`** (not the `.uf2`) — the file that objcopy produces for the partition.
+**Partition build** (works on both chips). The partition starts at `0x10080000` (512 KiB after the flash base;
+defined once in `cmake/picoboot_flash_layout.cmake`). Use the helper:
+
+```cmake
+include(/path/to/PicoBoot/cmake/picoboot_app_linker.cmake)
+# second argument: the board's total flash size in bytes
+picoboot_set_app_flash_region(my_app 16777216)
+pico_add_extra_outputs(my_app)     # produces my_app.bin
+```
+
+**Caution for normal builds on RP2350.** The flash is remapped only for *reading* code. Flash **programming**
+APIs (`flash_range_erase` / `flash_range_program`) use physical flash offsets and are not translated, so a
+normal build that stores data in flash at a low offset (e.g. "just after my program") would write over the
+bootloader. Apps that store data at the end of flash are fine. The mapping is undone by the next reset.
 
 To return to the bootloader from the app, reboot with the shared tag (this is what `testapps/app_reboot_to_bootloader`
 does; the value lives in `boot_core/include/picoboot/boot_tags.h`):
@@ -175,7 +190,7 @@ Anything else is a normal reset, so the bootloader menu comes back.
 |---|---|
 | `app_blink` | blinks an LED (the Pico W's onboard LED, GPIO19 on the CrowPanel, GPIO15 on the Waveshare board) |
 | `app_reboot_to_bootloader` | blinks briefly, then returns to the PicoBoot menu |
-| `app_wrong_offset` | linked for `0x10000000`; must be **refused** ("not built for this partition") |
+| `app_normal_build` | a completely normal build (`0x10000000`): **runs on RP2350** (blinks), must be **refused on RP2040** ("linked for 0x10000000: unsupported on RP2040") |
 
 ```bash
 cd testapps/app_blink
@@ -222,11 +237,12 @@ third_party/pico-toolset   git submodule
 
 ## Limitations and notes
 
-- **RP2040 vs RP2350 binaries are not told apart.** A raw `.bin` carries no chip marker; PicoBoot only
-  checks size and that the vector table points into SRAM and the partition. Copy only apps built for the
-  chip the bootloader is running on.
-- Apps must be **linked for `0x10080000`** — that is the point of the partition, and `app_wrong_offset`
-  shows the refusal.
+- **Chip family:** an RP2040 image is refused on an RP2350 board and the reverse, and RISC-V images are refused —
+  each with a message naming both chips. (Detection uses the RP2040 boot-stage checksum and the RP2350 image
+  definition block, which every Pico SDK build contains.)
+- **Normal builds need an RP2350.** On an RP2040 the application must be linked for the partition
+  (`0x10080000`); a normal build is refused with the reason and the fix.
+- **Normal builds and flash writes (RP2350):** see the caution in *Making an application*.
 - **Video stalls briefly while flashing** on the HDMI targets (the video core is parked one 16 KiB block at a
   time).
 - The **Pico DV** UI uses an 8-bit (RGB332, dithered) canvas to fit in RAM: whites are slightly yellow.
@@ -240,7 +256,8 @@ third_party/pico-toolset   git submodule
 |---|---|
 | picotool says "No accessible RP-series devices" | `lsusb -d 2e8a:` — the device must be there and your user must be allowed to open it (picotool's udev rules, PID `000a`); as a test try `sudo` |
 | The drive shows the old file list | press *Refresh* / `r` after copying files |
-| "not built for this partition" | the app was linked for `0x10000000`; rebuild with `picoboot_set_app_flash_region` |
+| "linked for 0x10000000: unsupported on RP2040" | a normal build on an RP2040 board: rebuild the app with `picoboot_set_app_flash_region` |
+| "built for RP2040, this board is RP2350" (or the reverse) | the app was built for the other chip family |
 | "does not fit in the application partition" | the `.bin` is larger than the flash minus the 512 KiB reserve |
 | `load: ...` line on the serial port | it names the failing step (`stat`, `fopen`, header read, streaming read, flash critical section, verify) |
 | No picture on HDMI | HDMI needs exactly 252 MHz; make sure you flashed the target built for your board |

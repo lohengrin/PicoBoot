@@ -79,24 +79,9 @@ void SerialUi::load(const AppBinaryEntry& entry) {
     fflush(stdout);
     const ProgressSink sink{print_progress, this};
     const LoadResult result = m_manager.load_and_boot(entry, sink);
-    switch (result) {
-        case LoadResult::kTooLarge:
-            printf("\nError: '%s' (%lu bytes) does not fit in the application partition.\n",
-                   entry.filename.c_str(), static_cast<unsigned long>(entry.size_bytes));
-            break;
-        case LoadResult::kReadFailed:
-            printf("\nError: could not read '%s' from the SD card.\n", entry.filename.c_str());
-            break;
-        case LoadResult::kInvalidImage:
-            printf("\nError: '%s' was not built for this partition (expected a program linked at 0x%08lX).\n",
-                   entry.filename.c_str(), static_cast<unsigned long>(kAppFlashBase));
-            break;
-        case LoadResult::kFlashFailed:
-            printf("\nError: flashing '%s' failed; the application partition is not bootable.\n",
-                   entry.filename.c_str());
-            break;
-        case LoadResult::kBooting:
-            break;
+    // load_and_boot() only returns on failure -- success reboots into the app.
+    if (result != LoadResult::kBooting) {
+        printf("\nError: %s\n", m_manager.last_error().c_str());
     }
 }
 

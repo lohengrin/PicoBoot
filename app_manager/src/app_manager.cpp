@@ -5,6 +5,7 @@
 #include "picoboot/image_check.h"
 
 #include <cerrno>
+#include <cstdarg>
 #include <cstdio>
 #include <sys/stat.h>
 
@@ -25,68 +26,126 @@ bool read_from_file(void* ctx, uint8_t* buf, size_t len) {
     return fread(buf, 1, len, static_cast<FILE*>(ctx)) == len;
 }
 
+std::string format(const char* fmt, ...) __attribute__((format(printf, 1, 2)));
+std::string format(const char* fmt, ...) {
+    char text[256];
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(text, sizeof(text), fmt, args);
+    va_end(args);
+    return text;
+}
+
+uint8_t g_head[kImageHeadBytes];
+
 } // namespace
+
+LoadResult AppManager::fail(LoadResult result, std::string short_text, std::string long_text) {
+    m_error_short = std::move(short_text);
+    m_error_long = std::move(long_text);
+    return result;
+}
 
 LoadResult AppManager::load_and_boot(const AppBinaryEntry& entry, const ProgressSink& sink) {
     const size_t partition_size = app_partition_size(PICO_FLASH_SIZE_BYTES);
+    const char* name = entry.filename.c_str();
 
     // The file's real size (the catalog's may be stale if the host changed it).
     struct stat st{};
-    if (stat(entry.filename.c_str(), &st) != 0 || st.st_size <= 0) {
-        printf("load: stat('%s') failed (errno %d)\n", entry.filename.c_str(), errno);
-        return LoadResult::kReadFailed;
+    if (stat(name, &st) != 0 || st.st_size <= 0) {
+        return fail(LoadResult::kReadFailed, format("cannot read '%s'", name),
+                    format("Could not read '%s' from the SD card: stat failed (errno %d).", name, errno));
     }
-    const long file_size = static_cast<long>(st.st_size);
-    if (FlashWriter::check_capacity(static_cast<size_t>(file_size), partition_size) == FlashResult::kTooLarge) {
-        return LoadResult::kTooLarge;
+    const size_t file_size = static_cast<size_t>(st.st_size);
+    if (FlashWriter::check_capacity(file_size, partition_size) == FlashResult::kTooLarge) {
+        return fail(LoadResult::kTooLarge, format("'%s' is larger than the app partition", name),
+                    format("'%s' (%lu bytes) does not fit in the application partition (%lu bytes).", name,
+                           static_cast<unsigned long>(file_size), static_cast<unsigned long>(partition_size)));
     }
 
     // Streamed from the card: RAM use is one 16 KiB block, not the image.
-    FILE* file = fopen(entry.filename.c_str(), "rb");
+    FILE* file = fopen(name, "rb");
     if (!file) {
-        printf("load: fopen('%s') failed (errno %d)\n", entry.filename.c_str(), errno);
-        return LoadResult::kReadFailed;
+        return fail(LoadResult::kReadFailed, format("cannot open '%s'", name),
+                    format("Could not open '%s' (errno %d).", name, errno));
     }
 
-    // Sanity-check the vector table (first bytes of the file) before touching flash.
-    uint8_t head[kVectorTableOffset + 8];
-    const size_t head_read = fread(head, 1, sizeof(head), file);
-    if (head_read != sizeof(head)) {
-        printf("load: reading the header of '%s' failed (%u of %u bytes, errno %d)\n", entry.filename.c_str(),
-               static_cast<unsigned>(head_read), static_cast<unsigned>(sizeof(head)), errno);
+    // Inspect the file itself before touching flash: which chip it was built
+    // for and where it was linked.
+    const size_t head_len = file_size < kImageHeadBytes ? file_size : kImageHeadBytes;
+    if (fread(g_head, 1, head_len, file) != head_len) {
         fclose(file);
-        return LoadResult::kReadFailed;
+        return fail(LoadResult::kReadFailed, format("cannot read the header of '%s'", name),
+                    format("Could not read the first %u bytes of '%s' (errno %d).", static_cast<unsigned>(head_len),
+                           name, errno));
     }
-    if (!looks_like_app_image(std::span<const uint8_t>(head), kAppFlashBase, static_cast<uint32_t>(partition_size))) {
+    const ImageInfo info =
+        inspect_image(std::span<const uint8_t>(g_head, head_len), kAppFlashBase, static_cast<uint32_t>(partition_size));
+    if (info.result != ImageCheck::kOk) {
         fclose(file);
-        return LoadResult::kInvalidImage;
+        switch (info.result) {
+            case ImageCheck::kTooSmall:
+                return fail(LoadResult::kInvalidImage, format("'%s' is too small to be an app", name),
+                            format("'%s' is too small to be an RP2040 or RP2350 application image.", name));
+            case ImageCheck::kUnknownChip:
+                return fail(LoadResult::kInvalidImage, "not an RP2040/RP2350 app image",
+                            format("'%s' is not a recognisable RP2040 or RP2350 application image (no RP2040 boot "
+                                   "stage and no RP2350 image definition in its first 4 KiB).", name));
+            case ImageCheck::kWrongChip:
+                return fail(LoadResult::kInvalidImage,
+                            format("built for %s, this board is %s", chip_name(info.chip), chip_name(kBoardChip)),
+                            format("'%s' was built for the %s but this board is an %s: it cannot run here.", name,
+                                   chip_name(info.chip), chip_name(kBoardChip)));
+            case ImageCheck::kRiscV:
+                return fail(LoadResult::kInvalidImage, "RISC-V image; this bootloader runs Arm",
+                            format("'%s' is an RP2350 RISC-V image; this bootloader starts applications on the Arm "
+                                   "cores.", name));
+            case ImageCheck::kBadVectors:
+                return fail(LoadResult::kInvalidImage, "invalid vector table (not a flash app)",
+                            format("'%s' has an invalid vector table (stack pointer not in SRAM, or reset vector not "
+                                   "in flash): it is not a flash application image, or it was linked for another "
+                                   "address.", name));
+            case ImageCheck::kUnsupportedLayout:
+                return fail(LoadResult::kInvalidImage, "linked for 0x10000000: unsupported on RP2040",
+                            format("'%s' was linked at 0x10000000 (a normal build). The RP2040 cannot map flash to "
+                                   "another address, so it only runs apps linked for the application partition at "
+                                   "0x%08lX. Rebuild it with picoboot_set_app_flash_region() (see the README).", name,
+                                   static_cast<unsigned long>(kAppFlashBase)));
+            case ImageCheck::kOk: break;
+        }
     }
     if (fseek(file, 0, SEEK_SET) != 0) {
-        printf("load: rewinding '%s' failed (errno %d)\n", entry.filename.c_str(), errno);
         fclose(file);
-        return LoadResult::kReadFailed;
+        return fail(LoadResult::kReadFailed, format("cannot rewind '%s'", name),
+                    format("Could not rewind '%s' (errno %d).", name, errno));
     }
 
-    const WriteResult result = FlashWriter::write_image(kAppFlashBase, static_cast<size_t>(file_size), read_from_file, file, sink);
+    const WriteResult result = FlashWriter::write_image(kAppFlashBase, file_size, read_from_file, file, sink);
     fclose(file);
     switch (result) {
         case WriteResult::kReadFailed:
-            printf("load: reading '%s' failed while streaming (errno %d)\n", entry.filename.c_str(), errno);
-            return LoadResult::kReadFailed;
+            return fail(LoadResult::kReadFailed, format("reading '%s' failed", name),
+                        format("Reading '%s' failed while streaming it (errno %d); nothing was booted.", name, errno));
         case WriteResult::kFlashFailed:
-            printf("load: flash critical section failed at image offset 0x%X, error %d (-2 timeout: the other core did not park)\n",
-                   static_cast<unsigned>(FlashWriter::failure_offset()), FlashWriter::failure_code());
-            return LoadResult::kFlashFailed;
+            return fail(LoadResult::kFlashFailed, "flashing failed; partition not bootable",
+                        format("Flashing '%s' failed at image offset 0x%X: a flash critical section could not be "
+                               "entered (error %d; -2 means the other core did not park). The application partition is "
+                               "not bootable.", name, static_cast<unsigned>(FlashWriter::failure_offset()),
+                               FlashWriter::failure_code()));
         case WriteResult::kVerifyFailed:
-            printf("load: verify failed at image offset 0x%X (flash read-back differs from the file)\n",
-                   static_cast<unsigned>(FlashWriter::failure_offset()));
-            return LoadResult::kFlashFailed;
+            return fail(LoadResult::kFlashFailed, "flash verify failed; partition not bootable",
+                        format("Flashing '%s' failed at image offset 0x%X: the flash read-back differs from the file. "
+                               "The application partition is not bootable.", name,
+                               static_cast<unsigned>(FlashWriter::failure_offset())));
         case WriteResult::kOk: break;
     }
 
     m_config.last_run_binary = entry.filename;
     m_config.save();
 
+    if (info.layout == ImageLayout::kFlashBase) {
+        FastBoot::reboot_into_app_remapped(); // RP2350 only: inspect_image() rejects it elsewhere
+    }
     FastBoot::reboot_into_app();
 }
 

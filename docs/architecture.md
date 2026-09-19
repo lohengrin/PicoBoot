@@ -203,10 +203,15 @@ USB stacks: the device stack (MSC+CDC, native port) and the PIO-USB host
 (HID) share one TinyUSB build, hence one `tusb_config.h`; the composite has
 a device-only and a `_hid` variant built against the matching config.
 
-Application images are checked before flashing: size against the partition,
-and (`image_check`) that the initial SP points into SRAM and the reset
-vector into the application partition -- rejects apps linked for the
-default 0x10000000 layout (`testapps/app_wrong_offset`). The image is
+Application images are inspected before flashing (`image_check`, from the
+raw `.bin`): size against the partition; the **chip family** (RP2040: the
+256-byte boot stage's CRC32; RP2350: the picobin image-definition block in
+the first 4 KiB, which also gives the CPU, so RISC-V images are refused); the
+vector table (SP in SRAM, thumb reset vector); and the **link address** from
+the reset vector -- inside the partition (runs where it is flashed) or at
+`0x10000000` (a normal build). Normal builds run on **RP2350** through flash
+address translation (below); on RP2040 they are refused with an explanation.
+Every refusal produces a long message (serial) and a short one (screen). The image is
 **streamed** from the SD card in 16 KiB blocks (RAM use is one block, so
 large applications fit the RP2040's 264 KB): each 4 KiB sector is compared
 with flash and only differing sectors are erased/programmed, so re-loading an
@@ -215,19 +220,25 @@ section (a video core registered as a `flash_safe_execute` victim is parked
 one block at a time); failures are reported and never booted.
 
 Test applications (`testapps/`): `app_blink`, `app_reboot_to_bootloader`,
-`app_wrong_offset` (must be rejected).
+`app_normal_build` (runs on RP2350 via address translation; refused on RP2040).
 
-## Known limitation
+## Running normal builds on RP2350 (address translation)
 
-RP2040-vs-RP2350 architecture compatibility of a loaded `.bin` is **not**
-verified (explicit scope decision) — the checks are file size against the
-partition and the vector-table sanity check above, which cannot tell chip
-families apart. A raw, metadata-free `.bin` carries no chip-family marker, and
-adding one would require a header/trailer format or a filename convention,
-both rejected in favor of pure `.bin` passthrough. Mitigation: a given
-physical unit's bootloader is itself built for one specific chip, so in
-normal operation a user only copies binaries built for that chip onto that
-unit's card.
+The RP2350's flash controller (`QMI_ATRANSn`) can remap 4 MiB windows of the XIP
+address space onto other physical flash addresses. To start a normal build
+(linked at `0x10000000`) that was flashed at the partition, the bootloader
+(1) reads the app's SP/reset vector through the physical address, (2) from a
+RAM-resident stub programs windows 0..3 so virtual `0x10000000..` maps to
+physical `0x10080000..` (chained 4 MiB windows, 1024 x 4 KiB pages each), (3)
+invalidates the XIP cache (it is virtually addressed), (4) sets `VTOR` to
+`0x10000000`, and (5) branches. The stub must run from RAM because the
+bootloader's own code disappears from the window at step 2. The launch is a
+tag (`BootTag::kBootAppRemapped`) consumed at the top of `main()` after the
+watchdog reset, like the ordinary one; the mapping is reset by the next reset.
+
+Flash *programming* is not translated: an app that writes flash at low
+physical offsets would overwrite the bootloader (documented in the README).
+RP2040 has no such mechanism, hence the refusal there.
 
 ## Flash partition offset
 

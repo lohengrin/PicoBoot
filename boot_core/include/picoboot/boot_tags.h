@@ -13,14 +13,20 @@
 namespace picoboot {
 
 enum class BootTag : uint32_t {
-    // The only tag that skips full bootloader init: jump straight into the
-    // app at kAppFlashBase. Kept as a single equality check in FastBoot
-    // since it runs before anything exists to report a fault if it's wrong.
+    // Skips full bootloader init: jump straight into the app at
+    // kAppFlashBase (an app linked for the partition). The boot tags are
+    // single equality checks in FastBoot, since they run before anything
+    // exists to report a fault if they are wrong.
     kBootApp = 1,
 
     // App is asking to come back to the bootloader UI. Falls through to the
     // exact same full-init path as a cold power-on.
     kReenterBootloader = 2,
+
+    // Like kBootApp, but the application is a normal build (linked at
+    // 0x10000000): flash address translation maps the partition there first.
+    // RP2350 only.
+    kBootAppRemapped = 3,
 };
 
 } // namespace picoboot

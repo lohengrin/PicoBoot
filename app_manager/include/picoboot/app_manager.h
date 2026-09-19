@@ -6,6 +6,8 @@
 
 #include "pico_toolset/sdcard.h"
 
+#include <string>
+
 namespace picoboot {
 
 enum class LoadResult {
@@ -33,17 +35,28 @@ public:
     [[nodiscard]] const AppCatalog& catalog() const { return m_catalog; }
     [[nodiscard]] const PicoBootConfig& config() const { return m_config; }
 
-    // Reads `entry`, checks capacity, 4KB-compares against the flashed
-    // image (skipping erase/program if identical), records it as last-run in
-    // picoboot.cfg and reboots into it. Only returns on failure before
-    // flash is touched.
+    // Inspects `entry` (chip family and link address, from the file itself),
+    // streams it into flash (only differing sectors are written), records it
+    // as last-run in picoboot.cfg and reboots into it -- through flash address
+    // translation for a normal build on RP2350. Only returns on failure; then
+    // last_error() says why.
     LoadResult load_and_boot(const AppBinaryEntry& entry, const ProgressSink& sink);
+
+    // After load_and_boot() returned a failure: why, in words. The long form
+    // is a full sentence (serial console); the short form fits one line of a
+    // small screen.
+    [[nodiscard]] const std::string& last_error() const { return m_error_long; }
+    [[nodiscard]] const std::string& last_error_short() const { return m_error_short; }
 
 private:
     pico_toolset::SdCard& m_sd_card;
     pico_toolset::SdCardConfig m_sd_config;
     AppCatalog m_catalog;
     PicoBootConfig m_config;
+    std::string m_error_long;
+    std::string m_error_short;
+
+    LoadResult fail(LoadResult result, std::string short_text, std::string long_text);
 };
 
 } // namespace picoboot

@@ -1,5 +1,6 @@
-# Negative test: a normal pico-sdk app linked at the DEFAULT 0x10000000 (no partition offset).
-# PicoBoot must reject it ("not built for this partition") instead of flashing it.
+# A completely normal pico-sdk app, linked at the DEFAULT 0x10000000 (no partition offset).
+# RP2350: PicoBoot runs it through flash address translation. RP2040: PicoBoot must refuse it
+# with a clear message ("linked for 0x10000000: unsupported on RP2040").
 # Original description follows.
 # Minimal test app: blinks the board LED then halts. Standalone pico-sdk
 # firmware (no toolset dependency, deliberately, to keep this app's own
@@ -21,13 +22,13 @@ if(NOT PICO_SDK_PATH)
 endif()
 include(${PICO_SDK_PATH}/external/pico_sdk_import.cmake)
 
-project(app_wrong_offset C CXX ASM)
+project(app_normal_build C CXX ASM)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 pico_sdk_init()
 
-add_executable(app_wrong_offset main.cpp)
-target_link_libraries(app_wrong_offset PRIVATE pico_stdlib)
+add_executable(app_normal_build main.cpp)
+target_link_libraries(app_normal_build PRIVATE pico_stdlib)
 
-picoboot_testapp_led(app_wrong_offset)
-pico_add_extra_outputs(app_wrong_offset)
+picoboot_testapp_led(app_normal_build)
+pico_add_extra_outputs(app_normal_build)
