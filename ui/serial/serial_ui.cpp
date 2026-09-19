@@ -54,7 +54,7 @@ void SerialUi::show_menu() {
     if (count > 0) printf(" [1-%zu] load", count);
     if (m_page + 1 < pages) printf("  [n]ext page");
     if (m_page > 0) printf("  [p]revious page");
-    printf("  [r]efresh  [reboot]\n> ");
+    printf("  [r]efresh  [reboot]  [bootsel]\n> ");
     fflush(stdout);
 }
 
@@ -96,6 +96,10 @@ void SerialUi::handle_line(const std::string& raw) {
         printf("Rebooting...\n");
         fflush(stdout);
         FastBoot::reboot_into_bootloader();
+    } else if (line == "bootsel") {
+        printf("Rebooting into BOOTSEL...\n");
+        fflush(stdout);
+        FastBoot::reboot_into_bootsel();
     } else if (line == "r") {
         printf("Refreshing...\n");
         m_manager.refresh();

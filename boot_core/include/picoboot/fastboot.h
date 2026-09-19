@@ -22,6 +22,10 @@ public:
     // distinguished only for a possible future "returned from app" banner).
     // Never returns.
     [[noreturn]] static void reboot_into_bootloader();
+
+    // Reboots into the ROM's USB BOOTSEL mass-storage mode (no button
+    // needed), e.g. to update the bootloader itself. Never returns.
+    [[noreturn]] static void reboot_into_bootsel();
 };
 
 } // namespace picoboot

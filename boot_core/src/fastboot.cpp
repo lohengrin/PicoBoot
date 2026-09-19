@@ -2,6 +2,7 @@
 
 #include "picoboot/critical_section.h"
 #include "pico_toolset/reset_buttons.h"
+#include "pico/bootrom.h"
 
 namespace picoboot {
 
@@ -22,6 +23,11 @@ void FastBoot::reboot_into_app() {
 void FastBoot::reboot_into_bootloader() {
     InterruptGuard guard;
     pico_toolset::watchdog_reboot_with_tag(static_cast<uint32_t>(BootTag::kReenterBootloader));
+}
+
+void FastBoot::reboot_into_bootsel() {
+    InterruptGuard guard;
+    reset_usb_boot(0, 0);
 }
 
 } // namespace picoboot
