@@ -245,6 +245,12 @@ third_party/pico-toolset   git submodule
 | `load: ...` line on the serial port | it names the failing step (`stat`, `fopen`, header read, streaming read, flash critical section, verify) |
 | No picture on HDMI | HDMI needs exactly 252 MHz; make sure you flashed the target built for your board |
 
+## License
+
+PicoBoot is released under the [MIT License](LICENSE). The build also pulls in third-party code under
+their own licences: the Pico SDK (BSD-3-Clause), LVGL (MIT), FatFs / `pico_fatfs`, Pico-PIO-USB and the
+vendored DVI code inside the Pico-Toolset submodule (see that repository for its notices).
+
 ## Related
 
 - Full specification: [`PicoBootloaderV2.md`](PicoBootloaderV2.md)
