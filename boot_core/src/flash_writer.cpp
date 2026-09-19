@@ -20,6 +20,7 @@ namespace {
 
 constexpr size_t kBlockBytes = 4 * kFlashSectorSize;
 uint8_t g_block[kBlockBytes]; // the only RAM the image streaming needs
+size_t g_failure_offset = 0;
 
 struct BlockParams {
     uint32_t flash_offset;  // of the block
@@ -69,6 +70,8 @@ bool run_block(BlockParams& params) {
 
 } // namespace
 
+size_t FlashWriter::failure_offset() { return g_failure_offset; }
+
 WriteResult FlashWriter::write_image(uint32_t flash_base, size_t size, ImageReader read, void* read_ctx,
                                      const ProgressSink& sink) {
     const uint32_t flash_offset = flash_base - kFlashXipBase;
@@ -79,6 +82,7 @@ WriteResult FlashWriter::write_image(uint32_t flash_base, size_t size, ImageRead
     while (done < size) {
         const size_t len = std::min(kBlockBytes, size - done);
         if (!read(read_ctx, g_block, len)) {
+            g_failure_offset = done;
             return wrote ? WriteResult::kFlashFailed : WriteResult::kReadFailed;
         }
 
@@ -92,9 +96,10 @@ WriteResult FlashWriter::write_image(uint32_t flash_base, size_t size, ImageRead
         if (mask != 0) {
             BlockParams block{flash_offset + static_cast<uint32_t>(done), g_block, len, mask};
             wrote = true;
+            g_failure_offset = done;
             if (!run_block(block)) return WriteResult::kFlashFailed;
             // Read back through the XIP window: never boot an image that did not land.
-            if (std::memcmp(flash + done, g_block, len) != 0) return WriteResult::kFlashFailed;
+            if (std::memcmp(flash + done, g_block, len) != 0) return WriteResult::kVerifyFailed;
         }
 
         done += len;
