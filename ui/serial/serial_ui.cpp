@@ -1,6 +1,7 @@
 #include "serial_ui.h"
 
 #include "picoboot/fastboot.h"
+#include "picoboot/flash_layout.h"
 
 #include <algorithm>
 #include <cctype>
@@ -79,6 +80,10 @@ void SerialUi::load(const AppBinaryEntry& entry) {
             break;
         case LoadResult::kReadFailed:
             printf("\nError: could not read '%s' from the SD card.\n", entry.filename.c_str());
+            break;
+        case LoadResult::kInvalidImage:
+            printf("\nError: '%s' was not built for this partition (expected a program linked at 0x%08lX).\n",
+                   entry.filename.c_str(), static_cast<unsigned long>(kAppFlashBase));
             break;
         case LoadResult::kFlashFailed:
             printf("\nError: flashing '%s' failed; the application partition is not bootable.\n",

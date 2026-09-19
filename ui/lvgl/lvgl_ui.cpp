@@ -219,6 +219,8 @@ void LvglUi::load(size_t index) {
         set_status("Error: '" + entry->filename + "' does not fit in the application partition", true);
     } else if (result == LoadResult::kReadFailed) {
         set_status("Error: could not read '" + entry->filename + "'", true);
+    } else if (result == LoadResult::kInvalidImage) {
+        set_status("Error: '" + entry->filename + "' was not built for the application partition", true);
     } else if (result == LoadResult::kFlashFailed) {
         set_status("Error: flashing failed, application partition is not bootable", true);
     }

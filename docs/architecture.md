@@ -173,11 +173,41 @@ sequenceDiagram
     end
 ```
 
+## Status (Waveshare RP2350-PiZero)
+
+| Target | UI | Input | Flash (of 512 KB reserve) |
+|---|---|---|---|
+| `picoboot_serial` | serial (CDC) | terminal | ~157 KB |
+| `picoboot_lvgl_lcd` | LVGL on ILI9486 3.5" + serial | touch | ~405 KB |
+| `picoboot_lvgl_dvi` | LVGL on HDMI/DVI (320x240) + serial | USB keyboard / mouse / gamepad (PIO-USB host) | ~433 KB |
+
+All builds expose USB CDC serial + MSC (the SD card) + the picotool reset
+interface (`picotool reboot -f -u` / `load -f` work without BOOTSEL; PID
+0x000A so picotool's stock udev rules apply). Each bootloader links against
+a FLASH region limited to the reserve, so growing past 512 KB fails at link
+time. Default build type is MinSizeRel (LVGL at -O3 was 545 KB).
+
+USB stacks: the device stack (MSC+CDC, native port) and the PIO-USB host
+(HID) share one TinyUSB build, hence one `tusb_config.h`; the composite has
+a device-only and a `_hid` variant built against the matching config.
+
+Application images are checked before flashing: size against the partition,
+and (`image_check`) that the initial SP points into SRAM and the reset
+vector into the application partition -- rejects apps linked for the
+default 0x10000000 layout (`testapps/app_wrong_offset`). Flashing runs in
+16 KiB blocks, each in its own critical section (a video core registered as
+a `flash_safe_execute` victim is parked one block at a time); failures are
+reported and never booted.
+
+Test applications (`testapps/`): `app_blink`, `app_reboot_to_bootloader`,
+`app_wrong_offset` (must be rejected).
+
 ## Known limitation
 
 RP2040-vs-RP2350 architecture compatibility of a loaded `.bin` is **not**
-verified (explicit scope decision) — only file-size-vs-partition-size is
-checked. A raw, metadata-free `.bin` carries no chip-family marker, and
+verified (explicit scope decision) — the checks are file size against the
+partition and the vector-table sanity check above, which cannot tell chip
+families apart. A raw, metadata-free `.bin` carries no chip-family marker, and
 adding one would require a header/trailer format or a filename convention,
 both rejected in favor of pure `.bin` passthrough. Mitigation: a given
 physical unit's bootloader is itself built for one specific chip, so in

@@ -12,6 +12,7 @@ enum class LoadResult {
     kBooting,   // never actually returned: success reboots into the app
     kTooLarge,
     kReadFailed,
+    kInvalidImage, // not linked for the application partition (wrong address / not an image)
     kFlashFailed, // flash was (partly) written and is not bootable
 };
 

@@ -2,6 +2,7 @@
 
 #include "picoboot/fastboot.h"
 #include "picoboot/flash_layout.h"
+#include "picoboot/image_check.h"
 
 namespace picoboot {
 
@@ -27,6 +28,9 @@ LoadResult AppManager::load_and_boot(const AppBinaryEntry& entry, const Progress
     }
 
     const std::span<const uint8_t> image_span(image);
+    if (!looks_like_app_image(image_span, kAppFlashBase, static_cast<uint32_t>(partition_size))) {
+        return LoadResult::kInvalidImage;
+    }
     if (!FlashWriter::compare_4k(kAppFlashBase, image_span)) {
         if (!FlashWriter::erase_and_program(kAppFlashBase, image_span, sink)) {
             return LoadResult::kFlashFailed;

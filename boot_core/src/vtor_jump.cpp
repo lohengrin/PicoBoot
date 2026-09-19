@@ -1,6 +1,7 @@
 #include "picoboot/vtor_jump.h"
 
 #include "picoboot/critical_section.h"
+#include "picoboot/image_check.h"
 
 // RP2350's Cortex-M33 has an architectural SCB->VTOR (ARMv8-M). RP2040's
 // Cortex-M0+ has no architectural VTOR, but RP2040 silicon exposes a
@@ -14,32 +15,6 @@
 
 namespace picoboot {
 
-namespace {
-
-// Offset from an app's flash base to its real vector table.
-// pico-sdk's pico_standard_link only force-links a .boot2 stub ahead of
-// the vector table on RP2040 (a real, always-256-byte QSPI-setup stub
-// that the on-chip ROM jumps into on a cold boot from flash offset 0);
-// RP2350 has no such requirement (its .boot2 section is optional and, in
-// a build that never references it, is discarded entirely) and no ROM
-// concept of chain-loading from a non-zero flash offset in the first
-// place -- confirmed on real hardware for RP2350 by inspecting a built
-// testapps/app_blink.bin: its actual vector table (a plausible RAM SP
-// followed by a matching reset handler address) sits at +0x0, not +0x100.
-// Since neither chip's app is ever cold-booted by the on-chip ROM at this
-// offset anyway (VTOR relocation is always a warm jump from the
-// already-running bootloader), the RP2040 branch's boot2 bytes, if
-// present, are simply unused padding either way -- this constant only
-// needs to match wherever the linker actually put the vector table.
-// TODO(Phase 8): re-verify this the same way on a real RP2040 build
-// before relying on it there.
-#if PICO_RP2350
-constexpr uint32_t kVectorTableOffset = 0x0u;
-#else
-constexpr uint32_t kVectorTableOffset = 0x100u;
-#endif
-
-} // namespace
 
 void relocate_vtor_and_jump(uint32_t app_flash_base) {
     InterruptGuard guard;
