@@ -28,7 +28,9 @@ LoadResult AppManager::load_and_boot(const AppBinaryEntry& entry, const Progress
 
     const std::span<const uint8_t> image_span(image);
     if (!FlashWriter::compare_4k(kAppFlashBase, image_span)) {
-        FlashWriter::erase_and_program(kAppFlashBase, image_span, sink);
+        if (!FlashWriter::erase_and_program(kAppFlashBase, image_span, sink)) {
+            return LoadResult::kFlashFailed;
+        }
     }
 
     m_config.last_run_binary = entry.filename;

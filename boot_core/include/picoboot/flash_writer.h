@@ -47,15 +47,17 @@ public:
     [[nodiscard]] static bool compare_4k(uint32_t flash_base, std::span<const uint8_t> new_image);
 
     // Erases exactly the sectors `new_image` occupies (rounded up to
-    // kFlashSectorSize) and programs it, reporting progress via `sink`
-    // after each chunk. Runs the whole erase+program body through
-    // flash_safe_execute() when the other core is lockout-ready, else
-    // falls back to a plain InterruptGuard (see critical_section.h) --
-    // mirrors components/psram's psram_init() idiom exactly, since
-    // PicoBoot runs single-core through Phase 8 and the fallback branch is
-    // what actually executes today.
-    static void erase_and_program(uint32_t flash_base, std::span<const uint8_t> new_image,
-                                   const ProgressSink& sink);
+    // kFlashSectorSize) and programs it in 16 KiB blocks, reporting progress
+    // via `sink` between blocks. Each block runs in its own critical section:
+    // flash_safe_execute() when the other core is a registered victim (see
+    // pico_flash), else a plain InterruptGuard -- mirrors components/psram's
+    // psram_init() idiom. Progress callbacks therefore run *outside* the
+    // critical section.
+    // Returns false if a flash critical section could not be entered (e.g.
+    // the other core failed to park within the timeout) -- the partition
+    // is then partially written and MUST NOT be booted.
+    [[nodiscard]] static bool erase_and_program(uint32_t flash_base, std::span<const uint8_t> new_image,
+                                                const ProgressSink& sink);
 };
 
 } // namespace picoboot

@@ -2,6 +2,8 @@
 
 #include "picoboot/fastboot.h"
 
+#include "pico/stdlib.h"
+
 #include <algorithm>
 #include <cstdio>
 
@@ -9,7 +11,9 @@ namespace picoboot {
 
 namespace {
 constexpr size_t kMaxListEntries = 250;
-constexpr int kHeaderHeight = 36;
+constexpr int kHeaderHeightWide = 36;
+constexpr int kHeaderHeightNarrow = 46; // title over subtitle
+constexpr int kNarrowWidth = 400;
 constexpr int kStatusHeight = 22;
 } // namespace
 
@@ -32,9 +36,14 @@ void LvglUi::build() {
     lv_obj_remove_flag(scr, LV_OBJ_FLAG_SCROLLABLE);
     const int w = lv_display_get_horizontal_resolution(m_adapter.display());
     const int h = lv_display_get_vertical_resolution(m_adapter.display());
+    // Narrow canvases (e.g. the 320x240 HDMI one) stack the subtitle under
+    // the title and use compact buttons so everything still fits one row.
+    const bool narrow = w < kNarrowWidth;
+    const int header_h = narrow ? kHeaderHeightNarrow : kHeaderHeightWide;
+    const int btn_w = narrow ? 64 : 78;
 
     lv_obj_t* header = lv_obj_create(scr);
-    lv_obj_set_size(header, w, kHeaderHeight);
+    lv_obj_set_size(header, w, header_h);
     lv_obj_set_pos(header, 0, 0);
     lv_obj_set_style_pad_hor(header, 6, 0);
     lv_obj_set_style_pad_ver(header, 0, 0);
@@ -45,31 +54,49 @@ void LvglUi::build() {
     lv_obj_set_flex_align(header, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_pad_column(header, 8, 0);
 
-    lv_obj_t* title = lv_label_create(header);
+    lv_obj_t* title_parent = header;
+    if (narrow) {
+        title_parent = lv_obj_create(header);
+        lv_obj_set_size(title_parent, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+        lv_obj_set_style_pad_all(title_parent, 0, 0);
+        lv_obj_set_style_border_width(title_parent, 0, 0);
+        lv_obj_set_style_bg_opa(title_parent, LV_OPA_TRANSP, 0);
+        lv_obj_remove_flag(title_parent, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_set_flex_flow(title_parent, LV_FLEX_FLOW_COLUMN);
+        lv_obj_set_style_pad_row(title_parent, 0, 0);
+    }
+
+    lv_obj_t* title = lv_label_create(title_parent);
     lv_label_set_text(title, "PicoBoot");
     lv_obj_set_style_text_font(title, &lv_font_montserrat_20, 0);
 
-    lv_obj_t* subtitle = lv_label_create(header);
+    lv_obj_t* subtitle = lv_label_create(title_parent);
     lv_label_set_text(subtitle, "by Lohengrin");
     lv_obj_set_style_text_font(subtitle, &lv_font_montserrat_14, 0);
     lv_obj_set_style_text_color(subtitle, lv_palette_main(LV_PALETTE_GREY), 0);
-    lv_obj_set_flex_grow(subtitle, 1);
+
+    // Spacer pushing the buttons to the right.
+    lv_obj_t* spacer = lv_obj_create(header);
+    lv_obj_set_size(spacer, 1, 1);
+    lv_obj_set_style_border_width(spacer, 0, 0);
+    lv_obj_set_style_bg_opa(spacer, LV_OPA_TRANSP, 0);
+    lv_obj_set_flex_grow(spacer, 1);
 
     lv_obj_t* btn_refresh = lv_button_create(header);
-    lv_obj_set_size(btn_refresh, 78, 28);
+    lv_obj_set_size(btn_refresh, btn_w, 28);
     lv_obj_add_event_cb(btn_refresh, LvglUiCallbacks::refresh, LV_EVENT_CLICKED, this);
     lv_label_set_text(lv_label_create(btn_refresh), "Refresh");
     lv_obj_center(lv_obj_get_child(btn_refresh, 0));
 
     lv_obj_t* btn_reboot = lv_button_create(header);
-    lv_obj_set_size(btn_reboot, 78, 28);
+    lv_obj_set_size(btn_reboot, btn_w, 28);
     lv_obj_add_event_cb(btn_reboot, LvglUiCallbacks::reboot, LV_EVENT_CLICKED, this);
     lv_label_set_text(lv_label_create(btn_reboot), "Reboot");
     lv_obj_center(lv_obj_get_child(btn_reboot, 0));
 
     m_list = lv_list_create(scr);
-    lv_obj_set_size(m_list, w, h - kHeaderHeight - kStatusHeight);
-    lv_obj_set_pos(m_list, 0, kHeaderHeight);
+    lv_obj_set_size(m_list, w, h - header_h - kStatusHeight);
+    lv_obj_set_pos(m_list, 0, header_h);
     lv_obj_set_style_radius(m_list, 0, 0);
 
     m_no_card = lv_label_create(scr);
@@ -192,6 +219,8 @@ void LvglUi::load(size_t index) {
         set_status("Error: '" + entry->filename + "' does not fit in the application partition", true);
     } else if (result == LoadResult::kReadFailed) {
         set_status("Error: could not read '" + entry->filename + "'", true);
+    } else if (result == LoadResult::kFlashFailed) {
+        set_status("Error: flashing failed, application partition is not bootable", true);
     }
 }
 
@@ -229,3 +258,16 @@ void LvglUi::poll() {
 }
 
 } // namespace picoboot
+
+// Default LVGL assertion handler (see lv_conf.h's LV_ASSERT_HANDLER): report
+// over CDC forever instead of hanging silently, keeping USB serviced through
+// the adapter's idle hook. Targets may override it (the LCD target also
+// paints the screen red).
+extern "C" __attribute__((weak)) void picoboot_lvgl_assert(void) {
+    while (true) {
+        printf("LVGL assertion failed\n");
+        for (absolute_time_t end = make_timeout_time_ms(1000); !time_reached(end);) {
+            if (pico_toolset::LvglDisplayAdapter::s_idle_hook) pico_toolset::LvglDisplayAdapter::s_idle_hook();
+        }
+    }
+}

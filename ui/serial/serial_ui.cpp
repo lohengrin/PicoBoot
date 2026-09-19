@@ -80,6 +80,10 @@ void SerialUi::load(const AppBinaryEntry& entry) {
         case LoadResult::kReadFailed:
             printf("\nError: could not read '%s' from the SD card.\n", entry.filename.c_str());
             break;
+        case LoadResult::kFlashFailed:
+            printf("\nError: flashing '%s' failed; the application partition is not bootable.\n",
+                   entry.filename.c_str());
+            break;
         case LoadResult::kBooting:
             break;
     }

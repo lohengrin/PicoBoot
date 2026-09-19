@@ -48,6 +48,7 @@ add_subdirectory(${TOOLSET_ROOT}/components/ili9486 ${CMAKE_BINARY_DIR}/_toolset
 add_subdirectory(${TOOLSET_ROOT}/components/xpt2046 ${CMAKE_BINARY_DIR}/_toolset/xpt2046)
 set(LV_CONF_PATH ${CMAKE_CURRENT_LIST_DIR}/ui/lvgl/lv_conf.h)
 include(${TOOLSET_ROOT}/cmake/pico_lvgl.cmake)
+add_subdirectory(${TOOLSET_ROOT}/components/dvi_hdmi ${CMAKE_BINARY_DIR}/_toolset/dvi_hdmi)
 add_subdirectory(${TOOLSET_ROOT}/components/lvgl_display ${CMAKE_BINARY_DIR}/_toolset/lvgl_display)
 
 add_subdirectory(boot_core)
@@ -58,3 +59,4 @@ add_subdirectory(usb)
 add_subdirectory(ui)
 add_subdirectory(targets/picoboot_serial)
 add_subdirectory(targets/picoboot_lvgl_lcd)
+add_subdirectory(targets/picoboot_lvgl_dvi)

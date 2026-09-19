@@ -12,6 +12,7 @@ enum class LoadResult {
     kBooting,   // never actually returned: success reboots into the app
     kTooLarge,
     kReadFailed,
+    kFlashFailed, // flash was (partly) written and is not bootable
 };
 
 // Orchestrates storage + config + boot_core. The only layer that talks to
