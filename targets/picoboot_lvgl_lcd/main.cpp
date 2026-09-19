@@ -63,7 +63,7 @@ int main() {
     picoboot::usb_bridge_task();
     g_lcd.init(pico_toolset::configs::ili9486::kWaveshareRp2350PiZero);
     picoboot::usb_bridge_task();
-    g_lcd.fill_solid(0x001F); // blue: proves the panel path before LVGL draws anything
+    g_lcd.fill_solid(0x0000); // clear the panel's power-up noise before the first frame
     printf("PicoBoot LVGL: panel ok\n");
     static pico_toolset::Xpt2046Touch touch;
     touch.init(pico_toolset::configs::xpt2046::kWaveshareRp2350PiZero);
