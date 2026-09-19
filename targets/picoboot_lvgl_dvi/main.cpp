@@ -25,7 +25,12 @@ extern "C" {
 #include "tmds_encode.h"
 }
 
+#include "hardware/clocks.h"
 #include "hardware/pio.h"
+#include "hardware/regs/qmi.h"
+#include "hardware/structs/qmi.h"
+#include "hardware/sync.h"
+#include "hardware/vreg.h"
 #include "pico/flash.h"
 #include "pico/multicore.h"
 #include "pico/stdlib.h"
@@ -87,6 +92,22 @@ int main() {
         }
         from_app_request = (tag == picoboot::BootTag::kReenterBootloader);
     }
+
+    // DVI/TMDS bit timing derives directly from clk_sys, which must be exactly
+    // 252 MHz for 640x480p60 (anything else stalls the PIO/DMA scanout with
+    // no video at all -- same requirement, and same validated recipe, as
+    // PicoDoom/TOM6809 on this board). Done only *after* the fast-boot check
+    // above so a booted application always starts from the pristine
+    // power-on clock state.
+    //
+    // 1. Flash QMI clock divider first: flash SPI = clk_sys / CLKDIV and boot2
+    //    programmed it for ~150 MHz, so keep it at 2 (252/2 = 126 MHz); the
+    //    RP2350 docs require increasing the divider *before* raising clk_sys.
+    hw_write_masked(&qmi_hw->m[0].timing, 2u << QMI_M0_TIMING_CLKDIV_LSB, QMI_M0_TIMING_CLKDIV_BITS);
+    // 2. Core voltage for 252 MHz, then the system clock.
+    vreg_set_voltage(VREG_VOLTAGE_1_20);
+    sleep_ms(10);
+    set_sys_clock_khz(252'000, true);
 
     stdio_init_all();
 
