@@ -13,7 +13,7 @@ elseif(PICOBOOT_TEST_BOARD STREQUAL "crowpanel_pico_hmi_28")
     set(PICO_BOARD pico CACHE STRING "" FORCE)
     set(PICO_PLATFORM rp2040 CACHE STRING "" FORCE)
     set(PICOBOOT_TEST_FLASH_SIZE 2097152)
-    set(PICOBOOT_TEST_LED_PIN 18) # the LCD backlight: visibly blinks
+    set(PICOBOOT_TEST_LED_PIN 19) # exposed header pin (GPIO15 is not broken out on this board)
 elseif(PICOBOOT_TEST_BOARD STREQUAL "pico_dv")
     set(PICO_BOARD pico_w CACHE STRING "" FORCE)
     set(PICO_PLATFORM rp2040 CACHE STRING "" FORCE)
