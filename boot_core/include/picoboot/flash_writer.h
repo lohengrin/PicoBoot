@@ -21,13 +21,22 @@ struct ProgressSink {
 
 enum class FlashResult {
     kOk,
-    kTooLarge,     // file_size exceeds the app partition
-    kIdentical,    // matched the currently-flashed image; nothing written
+    kTooLarge, // file_size exceeds the app partition
 };
+
+enum class WriteResult {
+    kOk,          // image now matches flash (possibly nothing needed writing)
+    kReadFailed,  // the source could not be read
+    kFlashFailed, // a flash critical section failed
+};
+
+// Sequential source of the new image (e.g. an SD-card file): fill `buf` with
+// the next `len` bytes; return false on failure.
+using ImageReader = bool (*)(void* ctx, uint8_t* buf, size_t len);
 
 // Flash erase/program helper for the app partition at kAppFlashBase
 // (boot_core/flash_layout.h). Every public entry point here is a
-// self-contained operation with its own critical section -- callers
+// self-contained operation with its own critical sections -- callers
 // (app_manager) never need to wrap these in their own InterruptGuard.
 class FlashWriter {
 public:
@@ -37,27 +46,20 @@ public:
     // docs/architecture.md's documented limitation.
     [[nodiscard]] static FlashResult check_capacity(size_t file_size, size_t partition_size);
 
-    // 4KB-chunked memcmp of `new_image` against the bytes currently at
-    // `flash_base` (read via the XIP memory-mapped pointer -- no special
-    // API needed to read flash, only to erase/program it). The final
-    // partial chunk is compared only over new_image's actual remaining
-    // length, not padded to 4KB, so a same-content-but-currently-larger
-    // old image still compares identical. Returns true if identical
-    // (caller should skip programming and boot as-is).
-    [[nodiscard]] static bool compare_4k(uint32_t flash_base, std::span<const uint8_t> new_image);
-
-    // Erases exactly the sectors `new_image` occupies (rounded up to
-    // kFlashSectorSize) and programs it in 16 KiB blocks, reporting progress
-    // via `sink` between blocks. Each block runs in its own critical section:
-    // flash_safe_execute() when the other core is a registered victim (see
-    // pico_flash), else a plain InterruptGuard -- mirrors components/psram's
-    // psram_init() idiom. Progress callbacks therefore run *outside* the
-    // critical section.
-    // Returns false if a flash critical section could not be entered (e.g.
-    // the other core failed to park within the timeout) -- the partition
-    // is then partially written and MUST NOT be booted.
-    [[nodiscard]] static bool erase_and_program(uint32_t flash_base, std::span<const uint8_t> new_image,
-                                                const ProgressSink& sink);
+    // Streams a `size`-byte image from `read` into flash at `flash_base` in
+    // 16 KiB blocks, so RAM use is one block regardless of image size (the
+    // RP2040 has only 264 KB). Each 4 KiB sector of a block is compared
+    // (memcmp, via the XIP window) with what is already flashed; only
+    // differing sectors are erased and programmed, so re-loading an
+    // identical image touches nothing. Sectors of a block are programmed in
+    // one critical section (flash_safe_execute() when the other core is a
+    // registered victim, else a plain InterruptGuard); progress callbacks and
+    // file reads run *outside* critical sections.
+    //
+    // After kFlashFailed or a kReadFailed that follows a write, the partition
+    // is partially written and MUST NOT be booted.
+    [[nodiscard]] static WriteResult write_image(uint32_t flash_base, size_t size, ImageReader read,
+                                                 void* read_ctx, const ProgressSink& sink);
 };
 
 } // namespace picoboot

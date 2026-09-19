@@ -173,13 +173,25 @@ sequenceDiagram
     end
 ```
 
-## Status (Waveshare RP2350-PiZero)
+## Status
 
 | Target | UI | Input | Flash (of 512 KB reserve) |
 |---|---|---|---|
 | `picoboot_serial` | serial (CDC) | terminal | ~157 KB |
 | `picoboot_lvgl_lcd` | LVGL on ILI9486 3.5" + serial | touch | ~405 KB |
-| `picoboot_lvgl_dvi` | LVGL on HDMI/DVI (320x240) + serial | USB keyboard / mouse / gamepad (PIO-USB host) | ~433 KB |
+| `picoboot_lvgl_dvi` | LVGL on HDMI/DVI (320x240) + serial | USB keyboard / mouse / gamepad (PIO-USB host) | ~434 KB |
+
+Boards are selected at configure time (`-DPICOBOOT_BOARD=...`, one build directory each):
+
+| Board | Chip | Targets | Input | Flash / RAM used |
+|---|---|---|---|---|
+| `waveshare_pizero` (default) | RP2350 | serial, LCD (external ILI9486), HDMI | touch (LCD); USB kbd/mouse/pad (HDMI) | up to 434 KB / 327 KB of 520 KB |
+| `crowpanel_pico_hmi_28` | RP2040 | serial, LVGL on the built-in ST7789 | touch | 420 KB / 114 KB of 264 KB |
+| `pico_dv` (Pico W on Pico DV) | RP2040 | serial, LVGL on HDMI (320x240 **RGB332**, half the RAM) | 3 buttons as keypad (provisional pins 7/9/20) | 419 KB / 189 KB of 264 KB |
+
+Hardware still to validate: CrowPanel touch calibration (provisional; define
+`PICO_TOOLSET_LVGL_TOUCH_DEBUG` to print raw samples), Pico DV button pins and
+HDMI output, and 252 MHz on RP2040.
 
 All builds expose USB CDC serial + MSC (the SD card) + the picotool reset
 interface (`picotool reboot -f -u` / `load -f` work without BOOTSEL; PID
@@ -194,10 +206,13 @@ a device-only and a `_hid` variant built against the matching config.
 Application images are checked before flashing: size against the partition,
 and (`image_check`) that the initial SP points into SRAM and the reset
 vector into the application partition -- rejects apps linked for the
-default 0x10000000 layout (`testapps/app_wrong_offset`). Flashing runs in
-16 KiB blocks, each in its own critical section (a video core registered as
-a `flash_safe_execute` victim is parked one block at a time); failures are
-reported and never booted.
+default 0x10000000 layout (`testapps/app_wrong_offset`). The image is
+**streamed** from the SD card in 16 KiB blocks (RAM use is one block, so
+large applications fit the RP2040's 264 KB): each 4 KiB sector is compared
+with flash and only differing sectors are erased/programmed, so re-loading an
+identical image writes nothing. Each block is programmed in its own critical
+section (a video core registered as a `flash_safe_execute` victim is parked
+one block at a time); failures are reported and never booted.
 
 Test applications (`testapps/`): `app_blink`, `app_reboot_to_bootloader`,
 `app_wrong_offset` (must be rejected).

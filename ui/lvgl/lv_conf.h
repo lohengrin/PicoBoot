@@ -67,7 +67,10 @@
 
 #if LV_USE_STDLIB_MALLOC == LV_STDLIB_BUILTIN
     /*Size of the memory available for `lv_malloc()` in bytes (>= 2kB)*/
-    #define LV_MEM_SIZE (96 * 1024U) /* PicoBoot: file list of a few hundred entries */
+    #ifndef PICOBOOT_LV_MEM_KB
+    #define PICOBOOT_LV_MEM_KB 96 /* PicoBoot: file list of a few hundred entries; RP2040 builds override */
+#endif
+    #define LV_MEM_SIZE (PICOBOOT_LV_MEM_KB * 1024U)
 
     /*Size of the memory expand for `lv_malloc()` in bytes*/
     #define LV_MEM_POOL_EXPAND_SIZE 0

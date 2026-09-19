@@ -1,11 +1,18 @@
-// picoboot_lvgl_dvi: bootloader with the LVGL UI on the onboard HDMI/DVI
-// output of the Waveshare RP2350-PiZero. Core 1 runs the DVI/TMDS encode
-// loop (see PicoDoom's i_video_dvi.cpp for the same setup); core 0 runs
+// picoboot_lvgl_dvi: bootloader with the LVGL UI on HDMI/DVI. Core 1 runs the
+// DVI/TMDS encode loop (same setup as PicoDoom's i_video_dvi.cpp); core 0 runs
 // USB, the SD card and the UIs. USB MSC + CDC serial and the serial UI stay
 // fully available.
+//
+//  - Waveshare RP2350-PiZero: 320x240 RGB565 canvas, USB keyboard/mouse/gamepad
+//    through the PIO-USB host.
+//  - Pico DV carrier + Pico (W) (RP2040, 264 KB RAM): 320x240 RGB332 canvas
+//    (half the memory), the carrier's three buttons as a keypad.
+// Either way the encoder doubles pixels horizontally and DVI_VERTICAL_REPEAT
+// doubles rows, giving square pixels on 640x480p60.
 
 #include "lvgl_ui.h"
 #include "serial_ui.h"
+#include "board.h"
 
 #include "picoboot/app_manager.h"
 #include "picoboot/fastboot.h"
@@ -14,12 +21,16 @@
 #include "picoboot/vtor_jump.h"
 
 #include "pico_toolset/lvgl_display.h"
+#include "pico_toolset/sdcard.h"
+#include "pico_toolset/sdcard_configs.h"
+
+#if PICO_RP2350
 #include "pico_toolset/lvgl_hid.h"
 #include "pico_toolset/usb_hid_configs.h"
 #include "pico_toolset/usb_hid_host.h"
-#include "pico_toolset/sdcard.h"
-#include "pico_toolset/sdcard_configs.h"
-#include "board.h"
+#else
+#include "pico_toolset/lvgl_gpio_keys.h"
+#endif
 
 #include "dvi.h"
 #include "dvi_serialiser.h"
@@ -31,10 +42,12 @@ extern "C" {
 
 #include "hardware/clocks.h"
 #include "hardware/pio.h"
-#include "hardware/regs/qmi.h"
-#include "hardware/structs/qmi.h"
 #include "hardware/sync.h"
 #include "hardware/vreg.h"
+#if PICO_RP2350
+#include "hardware/regs/qmi.h"
+#include "hardware/structs/qmi.h"
+#endif
 #include "pico/flash.h"
 #include "pico/multicore.h"
 #include "pico/stdlib.h"
@@ -44,29 +57,39 @@ extern "C" {
 
 namespace {
 
-// 320x240 canvas: the encoder doubles each pixel horizontally and
-// DVI_VERTICAL_REPEAT doubles rows, giving square pixels on 640x480.
 constexpr int kCanvasW = 320;
 constexpr int kCanvasH = 240;
+
+#if PICO_RP2350
+using Pixel = uint16_t; // RGB565
 constexpr size_t kDrawRows = 40;
+const dvi_serialiser_cfg& dvi_pins() { return pico_sock_cfg; }
+#else
+using Pixel = uint8_t; // RGB332 (RRRGGGBB)
+constexpr size_t kDrawRows = 20;
+const dvi_serialiser_cfg& dvi_pins() { return pimoroni_demo_hdmi_cfg; }
+#endif
 
 dvi_inst g_dvi;
-alignas(4) uint16_t g_framebuf[kCanvasW * kCanvasH];
+alignas(4) Pixel g_framebuf[kCanvasW * kCanvasH];
 alignas(64) uint16_t g_draw_buffer[kCanvasW * kDrawRows];
 uint32_t g_core1_stack[1024];
 
-void __not_in_flash_func(encode_row)(const uint16_t* row) {
+void __not_in_flash_func(encode_row)(const Pixel* row) {
     uint32_t* tmdsbuf;
     queue_remove_blocking_u32(&g_dvi.q_tmds_free, &tmdsbuf);
     const uint pixwidth = g_dvi.timing->h_active_pixels;
     const uint words_per_channel = pixwidth / DVI_SYMBOLS_PER_WORD;
     const auto* pix = reinterpret_cast<const uint32_t*>(row);
-    tmds_encode_data_channel_16bpp(pix, tmdsbuf + 0 * words_per_channel, pixwidth / 2,
-                                   DVI_16BPP_BLUE_MSB, DVI_16BPP_BLUE_LSB);
-    tmds_encode_data_channel_16bpp(pix, tmdsbuf + 1 * words_per_channel, pixwidth / 2,
-                                   DVI_16BPP_GREEN_MSB, DVI_16BPP_GREEN_LSB);
-    tmds_encode_data_channel_16bpp(pix, tmdsbuf + 2 * words_per_channel, pixwidth / 2,
-                                   DVI_16BPP_RED_MSB, DVI_16BPP_RED_LSB);
+#if PICO_RP2350
+    tmds_encode_data_channel_16bpp(pix, tmdsbuf + 0 * words_per_channel, pixwidth / 2, DVI_16BPP_BLUE_MSB, DVI_16BPP_BLUE_LSB);
+    tmds_encode_data_channel_16bpp(pix, tmdsbuf + 1 * words_per_channel, pixwidth / 2, DVI_16BPP_GREEN_MSB, DVI_16BPP_GREEN_LSB);
+    tmds_encode_data_channel_16bpp(pix, tmdsbuf + 2 * words_per_channel, pixwidth / 2, DVI_16BPP_RED_MSB, DVI_16BPP_RED_LSB);
+#else
+    tmds_encode_data_channel_8bpp(pix, tmdsbuf + 0 * words_per_channel, pixwidth / 2, DVI_8BPP_BLUE_MSB, DVI_8BPP_BLUE_LSB);
+    tmds_encode_data_channel_8bpp(pix, tmdsbuf + 1 * words_per_channel, pixwidth / 2, DVI_8BPP_GREEN_MSB, DVI_8BPP_GREEN_LSB);
+    tmds_encode_data_channel_8bpp(pix, tmdsbuf + 2 * words_per_channel, pixwidth / 2, DVI_8BPP_RED_MSB, DVI_8BPP_RED_LSB);
+#endif
     queue_add_blocking_u32(&g_dvi.q_tmds_valid, &tmdsbuf);
 }
 
@@ -85,13 +108,25 @@ void __not_in_flash_func(core1_entry)() {
     }
 }
 
+#if PICO_RP2350
 // Both USB roles must be serviced frequently: the device stack (MSC/CDC on
-// the native port) and the PIO-USB host (keyboard/mouse), which is polled
-// from core 0 since core 1 belongs to the DVI encoder.
+// the native port) and the PIO-USB host (keyboard/mouse), polled from core 0
+// since core 1 belongs to the DVI encoder.
 void pump_usb() {
     picoboot::usb_bridge_task();
     pico_toolset::UsbHidHost::task();
 }
+#else
+void pump_usb() { picoboot::usb_bridge_task(); }
+
+// Pimoroni Pico DV Demo Base buttons A/B/C (active low). Provisional pins
+// (7 / 9 / 20) -- confirm on the carrier; see docs/architecture.md.
+constexpr pico_toolset::LvglGpioKey kKeys[] = {
+    {7, LV_KEY_PREV},
+    {9, LV_KEY_ENTER},
+    {20, LV_KEY_NEXT},
+};
+#endif
 
 } // namespace
 
@@ -108,15 +143,14 @@ int main() {
     // DVI/TMDS bit timing derives directly from clk_sys, which must be exactly
     // 252 MHz for 640x480p60 (anything else stalls the PIO/DMA scanout with
     // no video at all -- same requirement, and same validated recipe, as
-    // PicoDoom/TOM6809 on this board). Done only *after* the fast-boot check
-    // above so a booted application always starts from the pristine
-    // power-on clock state.
-    //
-    // 1. Flash QMI clock divider first: flash SPI = clk_sys / CLKDIV and boot2
-    //    programmed it for ~150 MHz, so keep it at 2 (252/2 = 126 MHz); the
-    //    RP2350 docs require increasing the divider *before* raising clk_sys.
+    // PicoDoom/TOM6809). Done only *after* the fast-boot check above so a
+    // booted application always starts from the pristine power-on clock state.
+#if PICO_RP2350
+    // Flash SPI = clk_sys / CLKDIV and boot2 programmed it for ~150 MHz, so
+    // keep it at 2 (252/2 = 126 MHz); the RP2350 docs require raising the
+    // divider *before* raising clk_sys.
     hw_write_masked(&qmi_hw->m[0].timing, 2u << QMI_M0_TIMING_CLKDIV_LSB, QMI_M0_TIMING_CLKDIV_BITS);
-    // 2. Core voltage for 252 MHz, then the system clock.
+#endif
     vreg_set_voltage(VREG_VOLTAGE_1_20);
     sleep_ms(10);
     set_sys_clock_khz(252'000, true);
@@ -130,8 +164,10 @@ int main() {
     pico_toolset::LvglDisplayAdapter::s_idle_hook = pump_usb;
 
     g_dvi.timing = &dvi_timing_640x480p_60hz;
-    g_dvi.ser_cfg = pico_sock_cfg;
+    g_dvi.ser_cfg = dvi_pins();
+#if PICO_RP2350
     pio_set_gpio_base(g_dvi.ser_cfg.pio, 16); // TMDS pins are GPIO32-38 on this board
+#endif
     dvi_init(&g_dvi, next_striped_spin_lock_num(), next_striped_spin_lock_num());
     memset(g_framebuf, 0, sizeof(g_framebuf));
     picoboot::usb_bridge_task();
@@ -139,6 +175,7 @@ int main() {
     multicore_launch_core1_with_stack(core1_entry, g_core1_stack, sizeof(g_core1_stack));
     printf("PicoBoot HDMI: DVI 640x480p60, %dx%d canvas\n", kCanvasW, kCanvasH);
 
+#if PICO_RP2350
     // Keyboard / mouse / gamepad on the PIO-USB host port. The mouse cursor
     // range is the canvas itself, so no coordinate scaling is needed.
     static pico_toolset::UsbHidHost hid;
@@ -146,12 +183,17 @@ int main() {
     hid_config.mouse_max_x = kCanvasW - 1;
     hid_config.mouse_max_y = kCanvasH - 1;
     hid.init(hid_config);
+#endif
 
     static pico_toolset::LvglDisplayAdapter adapter;
-    adapter.init_framebuffer(g_framebuf, kCanvasW, kCanvasH,
-                             {g_draw_buffer, sizeof(g_draw_buffer) / sizeof(g_draw_buffer[0])});
-
+    const pico_toolset::LvglDisplayConfig draw{g_draw_buffer, sizeof(g_draw_buffer) / sizeof(g_draw_buffer[0])};
+#if PICO_RP2350
+    adapter.init_framebuffer(g_framebuf, kCanvasW, kCanvasH, draw);
     pico_toolset::lvgl_hid_init(hid); // before the UI builds its widgets (default focus group)
+#else
+    adapter.init_framebuffer_rgb332(g_framebuf, kCanvasW, kCanvasH, draw);
+    pico_toolset::lvgl_gpio_keys_init({kKeys, sizeof(kKeys) / sizeof(kKeys[0]), /*active_low=*/true});
+#endif
 
     static picoboot::LvglUi ui(manager, adapter, /*allow_auto_boot=*/!from_app_request);
     static picoboot::SerialUi serial_ui(manager, /*allow_auto_boot=*/false);
