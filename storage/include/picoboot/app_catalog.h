@@ -27,7 +27,13 @@ public:
     // not live coherency" model).
     void refresh(const pico_toolset::SdCard& sd_card);
 
+    // Directory listings are bounded so a huge folder cannot exhaust the heap of
+    // a small chip (the Pico DV has ~59 KB free).
+    static constexpr size_t kMaxEntries = 512;
+
     [[nodiscard]] size_t count() const { return m_entries.size(); }
+    // True if the card holds more .bin files than kMaxEntries (the rest are not listed).
+    [[nodiscard]] bool truncated() const { return m_truncated; }
 
     // Zero-based, clamped to available entries -- callers don't need to
     // range-check start/count themselves.
@@ -37,6 +43,7 @@ public:
 
 private:
     std::vector<AppBinaryEntry> m_entries;
+    bool m_truncated = false;
 };
 
 } // namespace picoboot

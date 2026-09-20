@@ -86,7 +86,7 @@ WriteResult FlashWriter::write_image(uint32_t flash_base, size_t size, ImageRead
         const size_t len = std::min(kBlockBytes, size - done);
         if (!read(read_ctx, g_block, len)) {
             g_failure_offset = done;
-            return wrote ? WriteResult::kFlashFailed : WriteResult::kReadFailed;
+            return wrote ? WriteResult::kReadFailedAfterWrite : WriteResult::kReadFailed;
         }
 
         uint32_t mask = 0;

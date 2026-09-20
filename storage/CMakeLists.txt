@@ -2,6 +2,7 @@
 # card component -- no boot_core/usb/ui dependency.
 add_library(picoboot_storage STATIC
     src/app_catalog.cpp
+    src/storage_state.cpp
 )
 
 target_include_directories(picoboot_storage PUBLIC include)

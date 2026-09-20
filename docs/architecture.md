@@ -222,6 +222,44 @@ one block at a time); failures are reported and never booted.
 Test applications (`testapps/`): `app_blink`, `app_reboot_to_bootloader`,
 `app_normal_build` (runs on RP2350 via address translation; refused on RP2040).
 
+## Storage: the card, the USB drive and the loader
+
+Two things use the same card: the USB host (raw 512-byte sectors through
+`disk_read`/`disk_write`) and the bootloader (FatFs, read-only apart from
+`picoboot.cfg`). They are **not kept coherent live**; the bootloader remounts on
+Refresh. What keeps this safe:
+
+- **Write lock while loading** (`storage_state`): the drive answers write
+  commands with "write protected" for the duration of a load, so nothing changes
+  under the file being streamed. Reads stay allowed.
+- **Real medium state.** The drive probes the card (a capacity command, at most
+  once a second) instead of trusting the mounted flag; three consecutive I/O
+  errors, or a failed probe, mark the card gone until Refresh. The host is told
+  (UNIT ATTENTION "media may have changed") only when the card was gone, appeared,
+  or changed capacity, or after a host eject -- never on a plain Refresh, so a copy
+  in progress is not disturbed.
+- **Durability.** SYNCHRONIZE CACHE and eject wait for the card to finish
+  programming (`CTRL_SYNC`) before answering, and the loader syncs before
+  resetting into the app.
+- **Capacity is cached** per medium (hosts ask constantly); an unreadable capacity
+  is never cached and is reported as "medium not present", not as zero blocks.
+- **Errors reported to the host are coarse:** TinyUSB 0.18 forces the sense data
+  "medium not present" on any failed READ/WRITE(10) callback, so the host cannot
+  tell an I/O error from a removal.
+- **picoboot.cfg** is only rewritten when `last_run` changed, and a failed write is
+  reported on serial.
+
+The bootloader's file access goes through the FatFs stdio shim (open/read/write/
+seek/stat/fstat; **no** delete, rename, mkdir or truncate) with `errno` mapped
+from the FatFs result and permission bits from the FAT read-only attribute. The
+FatFs configuration is generated from the fetched one with **UTF-8 names and code
+page 850** (the default 932 cost ~55 KB of tables). Directory listings come from one
+pass over the directory (names and sizes together) and are capped at 512 entries.
+
+Core 0's stack is 4 KiB (the default 2 KiB was tight for FatFs + printf + LVGL); the
+HDMI targets do not reserve a default core-1 stack because the video code supplies
+its own. `info` on the serial console reports the stack and heap headroom.
+
 ## Running normal builds on RP2350 (address translation)
 
 The RP2350's flash controller (`QMI_ATRANSn`) can remap 4 MiB windows of the XIP

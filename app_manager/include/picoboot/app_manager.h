@@ -10,6 +10,14 @@
 
 namespace picoboot {
 
+// Why the card is not usable (or that it is), from the last mount attempt.
+enum class CardStatus {
+    kReady,
+    kNoCard,               // does not answer: missing, or wiring
+    kUnsupportedFilesystem, // answers, but no FAT/exFAT volume FatFs can mount (GPT, unformatted, ...)
+    kError,                // some other mount failure
+};
+
 enum class LoadResult {
     kBooting,   // never actually returned: success reboots into the app
     kTooLarge,
@@ -31,7 +39,13 @@ public:
     // FatFs caches FAT state. Returns whether a card is mounted.
     bool refresh();
 
-    [[nodiscard]] bool card_present() const { return m_sd_card.is_mounted(); }
+    // True only while the card is mounted and still answering.
+    [[nodiscard]] bool card_present() const;
+    [[nodiscard]] CardStatus card_status() const;
+    // One line for the UIs: "no uSD card", "uSD card: no FAT/exFAT volume ...", ...
+    [[nodiscard]] std::string card_message() const;
+    // Multi-line diagnostics: card, filesystem result, capacity, listing, stack/heap headroom.
+    [[nodiscard]] std::string describe_storage() const;
     [[nodiscard]] const AppCatalog& catalog() const { return m_catalog; }
     [[nodiscard]] const PicoBootConfig& config() const { return m_config; }
 

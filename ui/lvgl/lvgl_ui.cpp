@@ -102,6 +102,9 @@ void LvglUi::build() {
     m_no_card = lv_label_create(scr);
     lv_label_set_text(m_no_card, "no uSD card");
     lv_obj_set_style_text_font(m_no_card, &lv_font_montserrat_20, 0);
+    lv_obj_set_width(m_no_card, w - 24);
+    lv_label_set_long_mode(m_no_card, LV_LABEL_LONG_WRAP);
+    lv_obj_set_style_text_align(m_no_card, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_align(m_no_card, LV_ALIGN_CENTER, 0, 0);
 
     m_status = lv_label_create(scr);
@@ -124,7 +127,10 @@ void LvglUi::populate() {
     const bool present = m_manager.card_present();
     if (present) lv_obj_remove_flag(m_list, LV_OBJ_FLAG_HIDDEN); else lv_obj_add_flag(m_list, LV_OBJ_FLAG_HIDDEN);
     if (present) lv_obj_add_flag(m_no_card, LV_OBJ_FLAG_HIDDEN); else lv_obj_remove_flag(m_no_card, LV_OBJ_FLAG_HIDDEN);
-    if (!present) return;
+    if (!present) {
+        lv_label_set_text(m_no_card, m_manager.card_message().c_str());
+        return;
+    }
 
     const AppCatalog& catalog = m_manager.catalog();
     const size_t shown = std::min(catalog.count(), kMaxListEntries);
@@ -139,7 +145,7 @@ void LvglUi::populate() {
     }
     if (catalog.count() == 0) {
         lv_list_add_text(m_list, "(no .bin files found)");
-    } else if (catalog.count() > shown) {
+    } else if (catalog.count() > shown || catalog.truncated()) {
         lv_list_add_text(m_list, "(list truncated)");
     }
 }
@@ -241,7 +247,7 @@ void LvglUi::poll() {
             m_countdown_active = false;
             m_manager.refresh();
             populate();
-            set_status(m_manager.card_present() ? "" : "no uSD card");
+            set_status(m_manager.card_present() ? "" : m_manager.card_message());
             break;
         case Pending::kReboot:
             FastBoot::reboot_into_bootloader();

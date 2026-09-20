@@ -13,4 +13,5 @@ target_include_directories(picoboot_usb PUBLIC
 target_link_libraries(picoboot_usb PUBLIC
     pico_stdlib
     pico_toolset_sdcard
+    picoboot_storage
 )

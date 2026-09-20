@@ -29,6 +29,7 @@ enum class WriteResult {
     kReadFailed,  // the source could not be read
     kFlashFailed, // a flash critical section could not be entered (e.g. the other core did not park)
     kVerifyFailed, // read-back through XIP differs from what was written
+    kReadFailedAfterWrite, // the source failed after flashing had begun: the partition is half-written
 };
 
 // Sequential source of the new image (e.g. an SD-card file): fill `buf` with
@@ -57,8 +58,8 @@ public:
     // registered victim, else a plain InterruptGuard); progress callbacks and
     // file reads run *outside* critical sections.
     //
-    // After kFlashFailed or a kReadFailed that follows a write, the partition
-    // is partially written and MUST NOT be booted.
+    // After anything but kOk / kReadFailed (which happens before flash is
+    // touched) the partition is partially written and MUST NOT be booted.
     // Byte offset (into the image) of the block that failed, after a failure.
     [[nodiscard]] static size_t failure_offset();
     // pico error code of the failed flash_safe_execute() (-2 timeout, -4 not permitted, ...).

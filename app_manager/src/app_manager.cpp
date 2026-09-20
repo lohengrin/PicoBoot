@@ -3,6 +3,11 @@
 #include "picoboot/fastboot.h"
 #include "picoboot/flash_layout.h"
 #include "picoboot/image_check.h"
+#include "picoboot/memory_probe.h"
+#include "picoboot/storage_state.h"
+
+#include "ff.h"
+#include "diskio.h"
 
 #include <cerrno>
 #include <cstdarg>
@@ -13,11 +18,62 @@ namespace picoboot {
 
 bool AppManager::refresh() {
     m_sd_card.init(m_sd_config);
+    storage_note_remount(); // clears a failed state; the USB drive re-reads the medium
     m_catalog.refresh(m_sd_card);
     if (m_sd_card.is_mounted()) {
         m_config.load();
     }
     return m_sd_card.is_mounted();
+}
+
+bool AppManager::card_present() const { return m_sd_card.is_mounted() && !storage_failed(); }
+
+CardStatus AppManager::card_status() const {
+    if (card_present()) return CardStatus::kReady;
+    if (m_sd_card.is_mounted()) return CardStatus::kNoCard; // mounted earlier, stopped answering
+    switch (m_sd_card.last_mount_result()) {
+        case FR_DISK_ERR:
+        case FR_NOT_READY:
+        case -1: return CardStatus::kNoCard; // -1: never mounted
+        case FR_NO_FILESYSTEM: return CardStatus::kUnsupportedFilesystem;
+        default: return CardStatus::kError;
+    }
+}
+
+std::string AppManager::card_message() const {
+    switch (card_status()) {
+        case CardStatus::kReady: return "uSD card ready";
+        case CardStatus::kNoCard:
+            return m_sd_card.is_mounted() ? "uSD card stopped responding (Refresh to remount)" : "no uSD card";
+        case CardStatus::kUnsupportedFilesystem: return "uSD card has no FAT/exFAT volume (GPT or unformatted?)";
+        case CardStatus::kError: return "uSD card error (mount result " + std::to_string(m_sd_card.last_mount_result()) + ")";
+    }
+    return "uSD card error";
+}
+
+std::string AppManager::describe_storage() const {
+    char text[400];
+    LBA_t sectors = 0;
+    const bool have_size = m_sd_card.is_mounted() && disk_ioctl(0, GET_SECTOR_COUNT, &sectors) == RES_OK;
+    int n = snprintf(text, sizeof(text),
+                     "card:     %s\n"
+                     "mount:    FatFs result %d, %s\n",
+                     card_message().c_str(), m_sd_card.last_mount_result(),
+                     m_sd_card.used_native_spi() ? "hardware SPI" : "PIO SPI");
+    if (have_size) {
+        n += snprintf(text + n, sizeof(text) - n, "capacity: %lu sectors (%lu MiB)\n",
+                      static_cast<unsigned long>(sectors), static_cast<unsigned long>(sectors / 2048));
+    }
+    n += snprintf(text + n, sizeof(text) - n, "files:    %u listed%s\n", static_cast<unsigned>(m_catalog.count()),
+                  m_catalog.truncated() ? " (more on the card)" : "");
+    n += snprintf(text + n, sizeof(text) - n,
+                  "usb:      write lock %s, card %s\n"
+                  "stack:    %u of %u bytes never used\n"
+                  "heap:     %u bytes free\n",
+                  storage_write_locked() ? "ON" : "off", storage_failed() ? "FAILED" : "ok",
+                  static_cast<unsigned>(stack_unused()), static_cast<unsigned>(stack_total()),
+                  static_cast<unsigned>(heap_free()));
+    return text;
 }
 
 namespace {
@@ -46,7 +102,16 @@ LoadResult AppManager::fail(LoadResult result, std::string short_text, std::stri
     return result;
 }
 
+namespace {
+// The USB host must not write to the card while a file is streamed from it.
+struct WriteLockGuard {
+    WriteLockGuard() { storage_set_write_lock(true); }
+    ~WriteLockGuard() { storage_set_write_lock(false); }
+};
+} // namespace
+
 LoadResult AppManager::load_and_boot(const AppBinaryEntry& entry, const ProgressSink& sink) {
+    WriteLockGuard write_lock;
     const size_t partition_size = app_partition_size(PICO_FLASH_SIZE_BYTES);
     const char* name = entry.filename.c_str();
 
@@ -137,11 +202,23 @@ LoadResult AppManager::load_and_boot(const AppBinaryEntry& entry, const Progress
                         format("Flashing '%s' failed at image offset 0x%X: the flash read-back differs from the file. "
                                "The application partition is not bootable.", name,
                                static_cast<unsigned>(FlashWriter::failure_offset())));
+        case WriteResult::kReadFailedAfterWrite:
+            return fail(LoadResult::kFlashFailed, "card read failed mid-load; partition not bootable",
+                        format("Reading '%s' from the SD card failed after flashing had begun (errno %d: card removed "
+                               "or I/O error). The application partition is half written and not bootable; load "
+                               "an app again.", name, errno));
         case WriteResult::kOk: break;
     }
 
-    m_config.last_run_binary = entry.filename;
-    m_config.save();
+    // Remember the app -- but only write the file when something changed: fewer
+    // card writes, and less chance of touching the FAT while a host has it mounted.
+    if (m_config.last_run_binary != entry.filename) {
+        m_config.last_run_binary = entry.filename;
+        if (!m_config.save()) {
+            printf("warning: could not save picoboot.cfg (errno %d); auto-boot will not remember '%s'\n", errno, name);
+        }
+    }
+    storage_sync(); // let the card finish any write before the reset
 
     if (info.layout == ImageLayout::kFlashBase) {
         FastBoot::reboot_into_app_remapped(); // RP2350 only: inspect_image() rejects it elsewhere

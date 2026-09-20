@@ -1,27 +1,24 @@
 #include "picoboot/app_catalog.h"
 
 #include <algorithm>
-#include <sys/stat.h>
 
 namespace picoboot {
 
 void AppCatalog::refresh(const pico_toolset::SdCard& sd_card) {
     m_entries.clear();
+    m_truncated = false;
 
     if (!sd_card.is_mounted()) {
         return;
     }
 
-    // list_files() only returns names (root-dir only, no subdirectories --
-    // fine for PicoBoot's flat catalog); sizes come from stat(), which
-    // needs PICO_TOOLSET_SDCARD_STDIO linked in (see storage/CMakeLists.txt).
-    for (const std::string& name : sd_card.list_files({"bin"})) {
-        struct stat st{};
-        uint32_t size = 0;
-        if (::stat(name.c_str(), &st) == 0) {
-            size = static_cast<uint32_t>(st.st_size);
-        }
-        m_entries.push_back(AppBinaryEntry{name, size});
+    // One directory pass gives names and sizes (hidden/system files and
+    // "._x" sidecars are skipped); the old per-file stat() rescanned the
+    // directory for every file, which is quadratic on big folders.
+    const auto files = sd_card.list_file_info({"bin"}, kMaxEntries, &m_truncated);
+    m_entries.reserve(files.size());
+    for (const auto& file : files) {
+        m_entries.push_back(AppBinaryEntry{file.name, file.size});
     }
 
     std::sort(m_entries.begin(), m_entries.end(),

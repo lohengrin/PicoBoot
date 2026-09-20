@@ -14,6 +14,7 @@ add_library(picoboot_boot_core STATIC
     src/vtor_jump.cpp
     src/flash_writer.cpp
     src/image_check.cpp
+    src/memory_probe.cpp
 )
 
 target_include_directories(picoboot_boot_core PUBLIC

@@ -109,7 +109,8 @@ The device uses VID/PID `2e8a:000a`, which the stock picotool udev rules already
 
 **Refresh after copying:** the bootloader and the USB host both read the card but do not stay in sync live.
 After adding or changing files over USB, use *Refresh* (or `r`) so the list — and the bootloader's view of
-the card — is updated. Avoid writing to the drive while an app is being loaded.
+the card — is updated. While an app is being loaded the USB drive is **read-only** (a host write is refused as write-protected), so a
+file cannot change under the loader.
 
 ### Serial menu
 
@@ -120,6 +121,7 @@ Open the CDC port (e.g. `screen /dev/ttyACM0 115200`). It runs alongside the LVG
 | a number | load that file |
 | `n` / `p` | next / previous page (20 entries per page, `showing 21-40 over 110`) |
 | `r` | refresh: remount the card and rescan |
+| `info` | storage diagnostics: card state and FatFs result, capacity, files listed, USB write lock, stack and heap headroom |
 | `reboot` | reboot into the bootloader |
 | `bootsel` | reboot into the ROM's USB BOOTSEL mode |
 | `buttons` | (Pico DV only) diagnostic: report which free pin changes when a button is pressed |
@@ -243,6 +245,11 @@ third_party/pico-toolset   git submodule
 - **Normal builds need an RP2350.** On an RP2040 the application must be linked for the partition
   (`0x10080000`); a normal build is refused with the reason and the fix.
 - **Normal builds and flash writes (RP2350):** see the caution in *Making an application*.
+- **Card and drive:** the drive is FAT12/16/32 or exFAT (first partition; a GPT-partitioned card is reported as
+  "no FAT/exFAT volume"). The bootloader lists `.bin` files in the **root folder** only, skips hidden/system
+  files and `._*` sidecars, and shows at most 512 files. A removed card is noticed by the drive within a second;
+  press *Refresh* after re-inserting it. A host "eject" flushes the card and hides the drive until you press
+  *Refresh* (or replug).
 - **Video stalls briefly while flashing** on the HDMI targets (the video core is parked one 16 KiB block at a
   time).
 - The **Pico DV** UI uses an 8-bit (RGB332, dithered) canvas to fit in RAM: whites are slightly yellow.
@@ -255,6 +262,9 @@ third_party/pico-toolset   git submodule
 |---|---|
 | picotool says "No accessible RP-series devices" | `lsusb -d 2e8a:` — the device must be there and your user must be allowed to open it (picotool's udev rules, PID `000a`); as a test try `sudo` |
 | The drive shows the old file list | press *Refresh* / `r` after copying files |
+| "uSD card has no FAT/exFAT volume" | the card is unformatted or GPT-partitioned: format it as FAT32 / exFAT with an MBR partition table |
+| "uSD card stopped responding" | the card was removed or its contacts failed; re-insert and press *Refresh* |
+| Something odd with a big folder or memory | `info` shows the free stack and heap; 512 files are listed at most |
 | "linked for 0x10000000: unsupported on RP2040" | a normal build on an RP2040 board: rebuild the app with `picoboot_set_app_flash_region` |
 | "built for RP2040, this board is RP2350" (or the reverse) | the app was built for the other chip family |
 | "does not fit in the application partition" | the `.bin` is larger than the flash minus the 512 KiB reserve |

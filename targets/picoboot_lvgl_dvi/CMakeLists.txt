@@ -33,3 +33,10 @@ pico_add_extra_outputs(picoboot_lvgl_dvi)
 
 include(${CMAKE_CURRENT_LIST_DIR}/../../cmake/picoboot_app_linker.cmake)
 picoboot_set_bootloader_flash_region(picoboot_lvgl_dvi)
+
+# Core 0's stack: the default 2 KiB is tight for FatFs + printf + LVGL (the 'info'
+# serial command reports the headroom).
+target_compile_definitions(picoboot_lvgl_dvi PRIVATE PICO_STACK_SIZE=0x1000)
+# The video code runs core 1 on its own stack array, so the linker need not reserve a
+# default core-1 stack -- on the RP2040 it would not fit next to the video code in SCRATCH_X.
+target_compile_definitions(picoboot_lvgl_dvi PRIVATE PICO_CORE1_STACK_SIZE=0)

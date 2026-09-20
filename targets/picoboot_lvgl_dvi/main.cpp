@@ -16,6 +16,7 @@
 
 #include "picoboot/app_manager.h"
 #include "picoboot/fastboot.h"
+#include "picoboot/memory_probe.h"
 #include "picoboot/flash_layout.h"
 #include "picoboot/usb_bridge.h"
 #include "picoboot/vtor_jump.h"
@@ -195,6 +196,7 @@ int main() {
     sleep_ms(10);
     set_sys_clock_khz(252'000, true);
 
+    picoboot::stack_paint(); // for the 'info' command's stack headroom
     stdio_init_all();
 
     static pico_toolset::SdCard sd_card;

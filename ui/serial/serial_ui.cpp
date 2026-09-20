@@ -36,7 +36,7 @@ void SerialUi::show_menu() {
 
     printf("\n=== PicoBoot ===\n");
     if (!m_manager.card_present()) {
-        printf("  no uSD card\n");
+        printf("  %s\n", m_manager.card_message().c_str());
         printf("Actions: [r]efresh (retry mount)  [reboot]\n> ");
         fflush(stdout);
         return;
@@ -53,13 +53,16 @@ void SerialUi::show_menu() {
         if (pages > 1) {
             printf("showing %zu-%zu over %zu\n", start + 1, start + entries.size(), count);
         }
+        if (catalog.truncated()) {
+            printf("(only the first %zu files are listed)\n", AppCatalog::kMaxEntries);
+        }
     }
 
     printf("Actions:");
     if (count > 0) printf(" [1-%zu] load", count);
     if (m_page + 1 < pages) printf("  [n]ext page");
     if (m_page > 0) printf("  [p]revious page");
-    printf("  [r]efresh  [reboot]  [bootsel]");
+    printf("  [r]efresh  [info]  [reboot]  [bootsel]");
     for (size_t i = 0; i < m_command_count; ++i) printf("  [%s]", m_commands[i].name);
     printf("\n> ");
     fflush(stdout);
@@ -96,6 +99,8 @@ void SerialUi::handle_line(const std::string& raw) {
         printf("Rebooting...\n");
         fflush(stdout);
         FastBoot::reboot_into_bootloader();
+    } else if (line == "info") {
+        printf("%s", m_manager.describe_storage().c_str());
     } else if (line == "bootsel") {
         printf("Rebooting into BOOTSEL...\n");
         fflush(stdout);

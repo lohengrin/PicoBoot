@@ -25,3 +25,7 @@ pico_add_extra_outputs(picoboot_serial)
 
 include(${CMAKE_CURRENT_LIST_DIR}/../../cmake/picoboot_app_linker.cmake)
 picoboot_set_bootloader_flash_region(picoboot_serial)
+
+# Core 0's stack: the default 2 KiB is tight for FatFs + printf + LVGL (the 'info'
+# serial command reports the headroom).
+target_compile_definitions(picoboot_serial PRIVATE PICO_STACK_SIZE=0x1000)
