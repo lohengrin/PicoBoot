@@ -99,6 +99,7 @@ add_subdirectory(${TOOLSET_ROOT}/components/usb_composite ${CMAKE_BINARY_DIR}/_t
 add_subdirectory(${TOOLSET_ROOT}/components/driver_interfaces ${CMAKE_BINARY_DIR}/_toolset/driver_interfaces EXCLUDE_FROM_ALL)
 if(PICOBOOT_BOARD STREQUAL "waveshare_pizero")
     add_subdirectory(${TOOLSET_ROOT}/components/ili9486 ${CMAKE_BINARY_DIR}/_toolset/ili9486 EXCLUDE_FROM_ALL)
+    add_subdirectory(${TOOLSET_ROOT}/components/st7796 ${CMAKE_BINARY_DIR}/_toolset/st7796 EXCLUDE_FROM_ALL)
 endif()
 if(PICOBOOT_BOARD STREQUAL "crowpanel_pico_hmi_28")
     add_subdirectory(${TOOLSET_ROOT}/components/st7789 ${CMAKE_BINARY_DIR}/_toolset/st7789 EXCLUDE_FROM_ALL)

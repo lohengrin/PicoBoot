@@ -36,7 +36,7 @@ hardware, including normal builds on the RP2350 (address translation) and the re
 
 | Board | `PICOBOOT_BOARD` | Chip | UI targets | Input |
 |---|---|---|---|---|
-| Waveshare RP2350-PiZero | `waveshare_pizero` (default) | RP2350 | serial; **LCD** (external 3.5" ILI9486 + touch); **HDMI** | touch (LCD); USB keyboard / mouse / gamepad on the PIO-USB port (HDMI) |
+| Waveshare RP2350-PiZero | `waveshare_pizero` (default) | RP2350 | serial; **LCD** (external 3.5" **ILI9486** or **ST7796U** panel + touch); **HDMI** | touch (LCD); USB keyboard / mouse / gamepad on the PIO-USB port (HDMI) |
 | Elecrow CrowPanel PICO HMI 2.8" | `crowpanel_pico_hmi_28` | RP2040 | serial; **LVGL on the built-in ST7789** | touch |
 | "Pico DV" carrier + Pico W | `pico_dv` | RP2040 | serial; **LVGL on HDMI** | 3 buttons |
 
@@ -45,7 +45,7 @@ Flash footprint (bootloader reserve is 512 KiB):
 | Target | Flash | RAM |
 |---|---|---|
 | `picoboot_serial` | ~160 KiB | ~39 KiB |
-| `picoboot_lvgl_lcd` (Waveshare) | ~399 KiB | ~173 KiB of 520 KiB |
+| `picoboot_lvgl_lcd` / `_st7796` (Waveshare) | ~399 KiB | ~173 KiB of 520 KiB |
 | `picoboot_lvgl_dvi` (Waveshare) | ~425 KiB | ~323 KiB of 520 KiB |
 | `picoboot_lvgl_crowpanel` | ~412 KiB | ~115 KiB of 264 KiB |
 | `picoboot_lvgl_dvi` (Pico DV) | ~413 KiB | ~188 KiB of 264 KiB |
@@ -71,8 +71,8 @@ cmake -S . -B build-crowpanel -DPICOBOOT_BOARD=crowpanel_pico_hmi_28 && cmake --
 cmake -S . -B build-picodv -DPICOBOOT_BOARD=pico_dv && cmake --build build-picodv -j
 ```
 
-Outputs are `build*/targets/<target>/<target>.uf2`: `picoboot_serial`, `picoboot_lvgl_lcd`,
-`picoboot_lvgl_dvi` (Waveshare), `picoboot_lvgl_crowpanel`, `picoboot_lvgl_dvi` (Pico DV). The default build
+Outputs are `build*/targets/<target>/<target>.uf2`: `picoboot_serial`, `picoboot_lvgl_lcd` (ILI9486 panel),
+`picoboot_lvgl_lcd_st7796` (ST7796U panel), `picoboot_lvgl_dvi` (Waveshare), `picoboot_lvgl_crowpanel`, `picoboot_lvgl_dvi` (Pico DV). The default build
 type is `MinSizeRel`; each bootloader is linked into a flash region limited to its 512 KiB reserve, so
 outgrowing it fails at link time instead of overwriting the application partition.
 

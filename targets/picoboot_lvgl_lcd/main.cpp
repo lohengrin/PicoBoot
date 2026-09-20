@@ -1,5 +1,8 @@
-// picoboot_lvgl_lcd: bootloader with the LVGL UI on the external 3.5"
-// ILI9486 LCD + XPT2046 touch.
+// picoboot_lvgl_lcd / picoboot_lvgl_lcd_st7796: bootloader with the LVGL UI on
+// the external 3.5" 480x320 LCD + XPT2046 touch of the Waveshare RP2350-PiZero.
+// The same wiring carries either an ILI9486 panel (Waveshare 3.5" RPi LCD (A),
+// the default) or an ST7796U panel (SunFounder 3.5" IPS): the second target is
+// this file built with PICOBOOT_LCD_ST7796.
 
 #include "lvgl_ui.h"
 #include "serial_ui.h"
@@ -11,8 +14,13 @@
 #include "picoboot/usb_bridge.h"
 #include "picoboot/vtor_jump.h"
 
+#ifdef PICOBOOT_LCD_ST7796
+#include "pico_toolset/st7796.h"
+#include "pico_toolset/st7796_configs.h"
+#else
 #include "pico_toolset/ili9486.h"
 #include "pico_toolset/ili9486_configs.h"
+#endif
 #include "pico_toolset/lvgl_display.h"
 #include "pico_toolset/sdcard.h"
 #include "pico_toolset/sdcard_configs.h"
@@ -28,7 +36,13 @@
 namespace {
 constexpr size_t kDrawRows = 40;
 alignas(64) uint16_t g_draw_buffer[480 * kDrawRows];
+#ifdef PICOBOOT_LCD_ST7796
+pico_toolset::St7796 g_lcd;
+const auto& lcd_config() { return pico_toolset::configs::st7796::kWaveshareRp2350PiZero; }
+#else
 pico_toolset::Ili9486 g_lcd;
+const auto& lcd_config() { return pico_toolset::configs::ili9486::kWaveshareRp2350PiZero; }
+#endif
 } // namespace
 
 // Called from LVGL's LV_ASSERT_HANDLER (see ui/lvgl/lv_conf.h): show a red
@@ -62,7 +76,7 @@ int main() {
     pico_toolset::LvglDisplayAdapter::s_idle_hook = picoboot::usb_bridge_task;
 
     picoboot::usb_bridge_task();
-    g_lcd.init(pico_toolset::configs::ili9486::kWaveshareRp2350PiZero);
+    g_lcd.init(lcd_config());
     picoboot::usb_bridge_task();
     g_lcd.fill_solid(0x0000); // clear the panel's power-up noise before the first frame
     printf("PicoBoot LVGL: panel ok\n");

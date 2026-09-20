@@ -178,7 +178,7 @@ sequenceDiagram
 | Target | UI | Input | Flash (of 512 KB reserve) |
 |---|---|---|---|
 | `picoboot_serial` | serial (CDC) | terminal | ~160 KiB |
-| `picoboot_lvgl_lcd` | LVGL on ILI9486 3.5" + serial | touch | ~399 KiB |
+| `picoboot_lvgl_lcd` / `picoboot_lvgl_lcd_st7796` | LVGL on the external 3.5" 480x320 panel (ILI9486 / ST7796U, same header wiring; one `main.cpp`, built twice) + serial | touch | ~352 KiB |
 | `picoboot_lvgl_dvi` | LVGL on HDMI/DVI (320x240) + serial | USB keyboard / mouse / gamepad (PIO-USB host) | ~425 KiB |
 
 Boards are selected at configure time (`-DPICOBOOT_BOARD=...`, one build directory each):
