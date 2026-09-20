@@ -22,6 +22,9 @@
 #include "pico_toolset/ili9486_configs.h"
 #endif
 #include "pico_toolset/lvgl_display.h"
+#include "pico_toolset/lvgl_hid.h"
+#include "pico_toolset/usb_hid_configs.h"
+#include "pico_toolset/usb_hid_host.h"
 #include "pico_toolset/sdcard.h"
 #include "pico_toolset/sdcard_configs.h"
 #include "board.h"
@@ -44,6 +47,13 @@ const auto& lcd_config() { return pico_toolset::configs::st7796::kWaveshareRp235
 pico_toolset::Ili9486 g_lcd;
 const auto& lcd_config() { return pico_toolset::configs::ili9486::kWaveshareRp2350PiZero; }
 #endif
+
+// Both USB roles need frequent servicing: the device stack (MSC/CDC on the native
+// port) and the PIO-USB host (keyboard/mouse), both polled from core 0.
+void pump_usb() {
+    picoboot::usb_bridge_task();
+    pico_toolset::UsbHidHost::task();
+}
 } // namespace
 
 // Called from LVGL's LV_ASSERT_HANDLER (see ui/lvgl/lv_conf.h): show a red
@@ -53,7 +63,7 @@ extern "C" void picoboot_lvgl_assert(void) {
     while (true) {
         printf("LVGL assertion failed\n");
         for (absolute_time_t end = make_timeout_time_ms(1000); !time_reached(end);) {
-            picoboot::usb_bridge_task();
+            pump_usb();
         }
     }
 }
@@ -97,6 +107,17 @@ int main() {
     adapter.add_touch(touch, touch_cal);
     printf("PicoBoot LVGL: adapter ok\n");
 
+    // Keyboard / mouse / gamepad on the PIO-USB host port (GPIO28/29). Core 1 is free here,
+    // but the host runs on core 0 (polled by pump_usb) like the HDMI target, on the
+    // validated PIO2 profile; the mouse range is the panel itself.
+    static pico_toolset::UsbHidHost hid;
+    pico_toolset::UsbHidConfig hid_config = pico_toolset::configs::usb_hid::kWaveshareRp2350PiZeroHdmi;
+    hid_config.mouse_max_x = 479;
+    hid_config.mouse_max_y = 319;
+    hid.init(hid_config);
+    pico_toolset::LvglDisplayAdapter::s_idle_hook = pump_usb;
+    pico_toolset::lvgl_hid_init(hid); // before the UI builds its widgets (default focus group)
+
     // Both UIs run side by side: the LCD is the primary one (owns the
     // auto-boot countdown); the serial menu stays fully usable over CDC.
     static picoboot::LvglUi ui(manager, adapter, /*allow_auto_boot=*/!from_app_request);
@@ -104,6 +125,6 @@ int main() {
     while (true) {
         ui.poll();
         serial_ui.poll();
-        picoboot::usb_bridge_task();
+        pump_usb();
     }
 }

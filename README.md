@@ -36,7 +36,7 @@ hardware, including normal builds on the RP2350 (address translation) and the re
 
 | Board | `PICOBOOT_BOARD` | Chip | UI targets | Input |
 |---|---|---|---|---|
-| Waveshare RP2350-PiZero | `waveshare_pizero` (default) | RP2350 | serial; **LCD** (external 3.5" **ILI9486** or **ST7796U** panel + touch); **HDMI** | touch (LCD); USB keyboard / mouse / gamepad on the PIO-USB port (HDMI) |
+| Waveshare RP2350-PiZero | `waveshare_pizero` (default) | RP2350 | serial; **LCD** (external 3.5" **ILI9486** or **ST7796U** panel + touch); **HDMI** | touch (LCD); USB keyboard / mouse / gamepad on the PIO-USB port (LCD and HDMI) |
 | Elecrow CrowPanel PICO HMI 2.8" | `crowpanel_pico_hmi_28` | RP2040 | serial; **LVGL on the built-in ST7789** | touch |
 | "Pico DV" carrier + Pico W | `pico_dv` | RP2040 | serial; **LVGL on HDMI** | 3 buttons |
 
@@ -45,7 +45,7 @@ Flash footprint (bootloader reserve is 512 KiB):
 | Target | Flash | RAM |
 |---|---|---|
 | `picoboot_serial` | ~110 KiB | ~41 KiB |
-| `picoboot_lvgl_lcd` / `_st7796` (Waveshare) | ~352 KiB | ~175 KiB of 520 KiB |
+| `picoboot_lvgl_lcd` / `_st7796` (Waveshare) | ~374 KiB | ~175 KiB of 520 KiB |
 | `picoboot_lvgl_dvi` (Waveshare) | ~378 KiB | ~321 KiB of 520 KiB |
 | `picoboot_lvgl_crowpanel` | ~365 KiB | ~117 KiB of 264 KiB |
 | `picoboot_lvgl_dvi` (Pico DV) | ~366 KiB | ~186 KiB of 264 KiB |
@@ -134,7 +134,7 @@ Failures print a line naming the step (`load: verify failed at image offset ...`
 
 Title "PicoBoot" / "by Lohengrin", a list of the current folder (sub-folders first, then the `.bin` files; a `..` row goes up), **Refresh** and **Reboot** buttons (kept in the
 header so the list has the vertical space), a status row (auto-boot countdown, errors) and a graphical
-progress bar. Input by board: touch (LCD boards), USB keyboard / mouse / gamepad (Waveshare HDMI; arrows or
+progress bar. Input by board: touch (LCD boards), USB keyboard / mouse / gamepad (Waveshare LCD and HDMI; arrows or
 Tab move, Enter selects), or the three buttons on the Pico DV (**A** down, **B** up, **C** select).
 
 ### `picoboot.cfg`

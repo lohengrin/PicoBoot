@@ -17,7 +17,8 @@ function(picoboot_add_lcd_target NAME PANEL_LIB)
         picoboot_config
         picoboot_app_manager
         picoboot_usb
-        pico_toolset_usb_composite
+        pico_toolset_usb_composite_hid # device stack + PIO-USB host share one tusb_config
+        pico_toolset_lvgl_hid
         picoboot_ui_lvgl
         picoboot_ui_serial
         ${PANEL_LIB}
