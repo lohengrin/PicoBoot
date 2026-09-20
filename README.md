@@ -254,7 +254,7 @@ third_party/pico-toolset   git submodule
   time).
 - The **Pico DV** UI uses an 8-bit (RGB332, dithered) canvas to fit in RAM: whites are slightly yellow.
 - The bootloader itself is updated with picotool / BOOTSEL, not from the SD card.
-- The CrowPanel touch calibration and the Pico DV button pins (GP14/15/16) are specific to those boards.
+- Touch calibration is per panel: the CrowPanel and the ST7796U LCD (horizontal axis mirrored vs. the ILI9486) have their own; the Pico DV button pins (GP14/15/16) are specific to that board.
 
 ## Troubleshooting
 

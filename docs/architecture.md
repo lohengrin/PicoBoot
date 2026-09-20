@@ -185,7 +185,7 @@ Boards are selected at configure time (`-DPICOBOOT_BOARD=...`, one build directo
 
 | Board | Chip | Targets | Input | Flash / RAM used |
 |---|---|---|---|---|
-| `waveshare_pizero` (default) | RP2350 | serial, LCD (external ILI9486), HDMI | touch (LCD); USB kbd/mouse/pad (HDMI) | up to 378 KiB / 321 KiB of 520 KiB |
+| `waveshare_pizero` (default) | RP2350 | serial, LCD (external ILI9486 / ST7796U), HDMI | touch (LCD); USB kbd/mouse/pad (HDMI) | up to 378 KiB / 321 KiB of 520 KiB |
 | `crowpanel_pico_hmi_28` | RP2040 | serial, LVGL on the built-in ST7789 | touch | 365 KiB / 117 KiB of 264 KiB |
 | `pico_dv` (Pico W on Pico DV) | RP2040 | serial, LVGL on HDMI (320x240 **RGB332**, half the RAM) | 3 buttons as keypad (A down, B up, C select; GPIO 14/15/16, polarity auto-detected) | 366 KiB / 186 KiB of 264 KiB |
 
