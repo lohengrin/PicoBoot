@@ -123,6 +123,7 @@ int main() {
     static picoboot::LvglUi ui(manager, adapter, /*allow_auto_boot=*/!from_app_request);
     static picoboot::SerialUi serial_ui(manager, /*allow_auto_boot=*/false);
     while (true) {
+        if (hid.consume_key_press(0x46)) ui.request_screenshot(); // PrintScreen
         ui.poll();
         serial_ui.poll();
         pump_usb();

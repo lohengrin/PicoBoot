@@ -137,6 +137,11 @@ header so the list has the vertical space), a status row (auto-boot countdown, e
 progress bar. Input by board: touch (LCD boards), USB keyboard / mouse / gamepad (Waveshare LCD and HDMI; arrows or
 Tab move, Enter selects), or the three buttons on the Pico DV (**A** down, **B** up, **C** select).
 
+**Screenshots** (LVGL UI with a USB keyboard: Waveshare LCD and HDMI targets): press **PrintScreen** to save the
+screen as a 24-bit BMP, `screenshot_0001.bmp`, `screenshot_0002.bmp`, ... in the card root. The number keeps
+increasing, so earlier captures are never overwritten. The USB drive is read-only while the file is written;
+use *Refresh* on the host (or remount) to see it.
+
 ### `picoboot.cfg`
 
 A text file in the card's root, created on first load:

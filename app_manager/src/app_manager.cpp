@@ -34,6 +34,21 @@ bool AppManager::refresh() {
     return m_sd_card.is_mounted();
 }
 
+std::string AppManager::next_screenshot_path() {
+    if (!card_present()) return {};
+    // Continue after the last number used; the first call after boot probes from 1.
+    for (unsigned n = m_screenshot_counter + 1; n < 10000; ++n) {
+        char path[32];
+        snprintf(path, sizeof(path), "screenshot_%04u.bmp", n);
+        struct stat st{};
+        if (stat(path, &st) != 0) {
+            m_screenshot_counter = n;
+            return path;
+        }
+    }
+    return {};
+}
+
 bool AppManager::browse_into(size_t index) {
     if (!m_catalog.enter(index)) return false;
     refresh(); // remounts: the host may have changed the volume over USB

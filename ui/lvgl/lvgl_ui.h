@@ -21,6 +21,9 @@ public:
 
     void poll() override;
 
+    // Saves the screen as the next screenshot_NNNN.bmp in the card root (done from poll()).
+    void request_screenshot() { m_screenshot_requested = true; }
+
 private:
     enum class Pending { kNone, kRefresh, kReboot, kLoad, kEnter, kUp };
 
@@ -31,6 +34,7 @@ private:
     void update_countdown();
     void load(size_t index);
     void navigate(bool up, size_t index);
+    void take_screenshot();
     static void on_progress(void* ctx, float fraction);
 
     AppManager& m_manager;
@@ -42,6 +46,7 @@ private:
     lv_obj_t* m_status = nullptr;
     lv_obj_t* m_bar = nullptr;
 
+    bool m_screenshot_requested = false;
     Pending m_pending = Pending::kNone;
     size_t m_pending_index = 0;
     std::string m_reselect; // folder just left: scrolled into view after going up

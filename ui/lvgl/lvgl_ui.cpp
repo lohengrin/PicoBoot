@@ -1,6 +1,8 @@
 #include "lvgl_ui.h"
 
 #include "picoboot/fastboot.h"
+#include "picoboot/storage_state.h"
+#include "screenshot.h"
 
 #include "pico/stdlib.h"
 
@@ -248,6 +250,32 @@ void LvglUi::load(size_t index) {
     }
 }
 
+void LvglUi::take_screenshot() {
+    m_screenshot_requested = false;
+    const std::string path = m_manager.next_screenshot_path();
+    if (path.empty()) {
+        set_status("Screenshot: no usable uSD card", true);
+        return;
+    }
+    const int w = lv_display_get_horizontal_resolution(m_adapter.display());
+    const int h = lv_display_get_vertical_resolution(m_adapter.display());
+
+    storage_set_write_lock(true); // the USB host must not write while the card is in use here
+    static ScreenshotWriter writer;
+    bool ok = writer.begin(path.c_str(), w, h);
+    if (ok) {
+        // Redraw everything: LVGL renders it tile by tile through the tap, top to bottom.
+        pico_toolset::LvglDisplayAdapter::set_flush_tap(ScreenshotWriter::on_tile, &writer);
+        lv_obj_invalidate(lv_screen_active());
+        for (int i = 0; i < 100 && !writer.complete(); ++i) m_adapter.tick();
+        pico_toolset::LvglDisplayAdapter::set_flush_tap(nullptr, nullptr);
+        ok = writer.end();
+    }
+    storage_set_write_lock(false);
+    storage_sync();
+    set_status(ok ? "Screenshot saved: " + path : "Screenshot failed (" + path + ")", !ok);
+}
+
 void LvglUi::navigate(bool up, size_t index) {
     m_countdown_active = false;
     if (up) {
@@ -273,6 +301,8 @@ void LvglUi::poll() {
     // Actions run here, never inside LVGL event callbacks: loading calls
     // back into adapter.tick() for the progress bar, which must not nest
     // inside lv_timer_handler().
+    if (m_screenshot_requested) take_screenshot();
+
     const Pending pending = m_pending;
     m_pending = Pending::kNone;
     switch (pending) {

@@ -244,6 +244,9 @@ int main() {
     serial_ui.add_command("buttons", scan_buttons);
 #endif
     while (true) {
+#if PICO_RP2350
+        if (hid.consume_key_press(0x46)) ui.request_screenshot(); // PrintScreen
+#endif
         ui.poll();
         serial_ui.poll();
         pump_usb();

@@ -46,6 +46,10 @@ public:
     bool browse_up(std::string* left = nullptr);
     void browse_root();
 
+    // Next unused "screenshot_NNNN.bmp" in the card root (never overwrites an earlier one);
+    // empty if the card is not usable.
+    [[nodiscard]] std::string next_screenshot_path();
+
     // True only while the card is mounted and still answering.
     [[nodiscard]] bool card_present() const;
     [[nodiscard]] CardStatus card_status() const;
@@ -73,6 +77,7 @@ private:
     pico_toolset::SdCard& m_sd_card;
     pico_toolset::SdCardConfig m_sd_config;
     AppCatalog m_catalog;
+    unsigned m_screenshot_counter = 0; // last number handed out
     PicoBootConfig m_config;
     bool m_dir_from_config = false; // the first listing starts in last_run's folder
     std::string m_error_long;
