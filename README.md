@@ -6,6 +6,8 @@ Copy a `.bin` onto the card (or drop it over USB), pick it from a menu, and Pico
 reserved partition and starts it — as if it had been flashed normally. It stays resident, so the next reset
 brings the menu back.
 
+![Image](images/screenshot_0001.png)
+
 ## Features
 
 - **Loads raw `.bin` files from a uSD card** into an application partition and boots them.
@@ -289,5 +291,5 @@ vendored DVI code inside the Pico-Toolset submodule (see that repository for its
 
 ## Related
 
-- Full specification: [`PicoBootloaderV2.md`](PicoBootloaderV2.md)
+- Full specification: [`docs/PicoBootloaderV2.md`](PicoBootloaderV2.md)
 - Architecture and design notes: [`docs/architecture.md`](docs/architecture.md)
