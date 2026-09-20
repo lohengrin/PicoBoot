@@ -44,11 +44,11 @@ Flash footprint (bootloader reserve is 512 KiB):
 
 | Target | Flash | RAM |
 |---|---|---|
-| `picoboot_serial` | ~160 KiB | ~39 KiB |
-| `picoboot_lvgl_lcd` / `_st7796` (Waveshare) | ~399 KiB | ~173 KiB of 520 KiB |
-| `picoboot_lvgl_dvi` (Waveshare) | ~425 KiB | ~323 KiB of 520 KiB |
-| `picoboot_lvgl_crowpanel` | ~412 KiB | ~115 KiB of 264 KiB |
-| `picoboot_lvgl_dvi` (Pico DV) | ~413 KiB | ~188 KiB of 264 KiB |
+| `picoboot_serial` | ~110 KiB | ~41 KiB |
+| `picoboot_lvgl_lcd` / `_st7796` (Waveshare) | ~352 KiB | ~175 KiB of 520 KiB |
+| `picoboot_lvgl_dvi` (Waveshare) | ~378 KiB | ~321 KiB of 520 KiB |
+| `picoboot_lvgl_crowpanel` | ~365 KiB | ~117 KiB of 264 KiB |
+| `picoboot_lvgl_dvi` (Pico DV) | ~366 KiB | ~186 KiB of 264 KiB |
 
 ## Building
 

@@ -177,17 +177,17 @@ sequenceDiagram
 
 | Target | UI | Input | Flash (of 512 KB reserve) |
 |---|---|---|---|
-| `picoboot_serial` | serial (CDC) | terminal | ~160 KiB |
+| `picoboot_serial` | serial (CDC) | terminal | ~110 KiB |
 | `picoboot_lvgl_lcd` / `picoboot_lvgl_lcd_st7796` | LVGL on the external 3.5" 480x320 panel (ILI9486 / ST7796U, same header wiring; one `main.cpp`, built twice) + serial | touch | ~352 KiB |
-| `picoboot_lvgl_dvi` | LVGL on HDMI/DVI (320x240) + serial | USB keyboard / mouse / gamepad (PIO-USB host) | ~425 KiB |
+| `picoboot_lvgl_dvi` | LVGL on HDMI/DVI (320x240) + serial | USB keyboard / mouse / gamepad (PIO-USB host) | ~378 KiB |
 
 Boards are selected at configure time (`-DPICOBOOT_BOARD=...`, one build directory each):
 
 | Board | Chip | Targets | Input | Flash / RAM used |
 |---|---|---|---|---|
-| `waveshare_pizero` (default) | RP2350 | serial, LCD (external ILI9486), HDMI | touch (LCD); USB kbd/mouse/pad (HDMI) | up to 425 KiB / 323 KiB of 520 KiB |
-| `crowpanel_pico_hmi_28` | RP2040 | serial, LVGL on the built-in ST7789 | touch | 412 KiB / 115 KiB of 264 KiB |
-| `pico_dv` (Pico W on Pico DV) | RP2040 | serial, LVGL on HDMI (320x240 **RGB332**, half the RAM) | 3 buttons as keypad (A down, B up, C select; GPIO 14/15/16, polarity auto-detected) | 413 KiB / 188 KiB of 264 KiB |
+| `waveshare_pizero` (default) | RP2350 | serial, LCD (external ILI9486), HDMI | touch (LCD); USB kbd/mouse/pad (HDMI) | up to 378 KiB / 321 KiB of 520 KiB |
+| `crowpanel_pico_hmi_28` | RP2040 | serial, LVGL on the built-in ST7789 | touch | 365 KiB / 117 KiB of 264 KiB |
+| `pico_dv` (Pico W on Pico DV) | RP2040 | serial, LVGL on HDMI (320x240 **RGB332**, half the RAM) | 3 buttons as keypad (A down, B up, C select; GPIO 14/15/16, polarity auto-detected) | 366 KiB / 186 KiB of 264 KiB |
 
 Pico DV HDMI output and 252 MHz on RP2040 are validated on hardware. CrowPanel: the SD card, panel and touch share SPI1, whose clock the
 display/touch drivers change -- the target restores the SD clock after every
