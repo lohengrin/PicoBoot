@@ -36,7 +36,7 @@ void SerialUi::show_menu() {
 
     printf("\n=== PicoBoot ===\n");
     if (!m_manager.card_present()) {
-        printf("  no \xC2\xB5SD card\n");
+        printf("  no uSD card\n");
         printf("Actions: [r]efresh (retry mount)  [reboot]\n> ");
         fflush(stdout);
         return;

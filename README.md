@@ -246,7 +246,6 @@ third_party/pico-toolset   git submodule
 - **Video stalls briefly while flashing** on the HDMI targets (the video core is parked one 16 KiB block at a
   time).
 - The **Pico DV** UI uses an 8-bit (RGB332, dithered) canvas to fit in RAM: whites are slightly yellow.
-- The screens show "no uSD card" (the UI font has no "µ").
 - The bootloader itself is updated with picotool / BOOTSEL, not from the SD card.
 - The CrowPanel touch calibration and the Pico DV button pins (GP14/15/16) are specific to those boards.
 
