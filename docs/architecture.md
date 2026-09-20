@@ -111,6 +111,9 @@ classDiagram
     }
     class AppCatalog {
         +refresh(SdCard&)
+        +enter(index) bool
+        +up() bool
+        +cwd() string
         +page(start, count) span
         +count() size_t
         +card_present() bool
@@ -246,6 +249,10 @@ Refresh. What keeps this safe:
 - **Errors reported to the host are coarse:** TinyUSB 0.18 forces the sense data
   "medium not present" on any failed READ/WRITE(10) callback, so the host cannot
   tell an I/O error from a removal.
+- **Folders**: the catalog lists one directory (folders first, max 512 entries), the UIs navigate with
+  `enter`/`up` (each remounts and re-lists). `last_run` is a path from the root and the first listing starts
+  in its folder, falling back to the root if it is gone. The USB drive needs nothing: the host's file system
+  manages folders itself.
 - **picoboot.cfg** is only rewritten when `last_run` changed, and a failed write is
   reported on serial.
 

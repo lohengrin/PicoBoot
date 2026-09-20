@@ -24,7 +24,7 @@ bool PicoBootConfig::load() {
         return false;
     }
 
-    char line[128];
+    char line[320]; // last_run is a path, up to AppCatalog::kMaxPath
     while (fgets(line, sizeof(line), f)) {
         std::string entry(line);
         const size_t eq = entry.find('=');

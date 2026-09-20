@@ -27,6 +27,8 @@ public:
     // "remember last run" convenience is lost for this session).
     bool save() const;
 
+    // Path of the last-run binary from the card root ('/'-separated, e.g. "games/a.bin";
+    // a root file is just "a.bin").
     std::string last_run_binary;
     uint32_t auto_boot_timeout_s = kDefaultAutoBootTimeoutS;
 };

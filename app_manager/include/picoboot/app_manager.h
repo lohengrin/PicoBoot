@@ -39,6 +39,13 @@ public:
     // FatFs caches FAT state. Returns whether a card is mounted.
     bool refresh();
 
+    // Folder navigation (one level per view): enter the folder at catalog index /
+    // go to the parent, then re-list. Return false when not possible (not a folder,
+    // already at the root). up() reports the folder left, to reselect it.
+    bool browse_into(size_t index);
+    bool browse_up(std::string* left = nullptr);
+    void browse_root();
+
     // True only while the card is mounted and still answering.
     [[nodiscard]] bool card_present() const;
     [[nodiscard]] CardStatus card_status() const;
@@ -67,6 +74,7 @@ private:
     pico_toolset::SdCardConfig m_sd_config;
     AppCatalog m_catalog;
     PicoBootConfig m_config;
+    bool m_dir_from_config = false; // the first listing starts in last_run's folder
     std::string m_error_long;
     std::string m_error_short;
 

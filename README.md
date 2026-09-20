@@ -100,12 +100,13 @@ The device uses VID/PID `2e8a:000a`, which the stock picotool udev rules already
 
 ## Using it
 
-1. Put `.bin` files in the **root** of a FAT-formatted uSD card (or connect the board and copy them over the
-   USB drive).
-2. Reset the board. The UI lists the files. If `auto_boot_timeout` is set and a last-run app exists, a
+1. Put `.bin` files on a FAT/exFAT-formatted uSD card, in the root or in folders (or connect the board and
+   copy them over the USB drive).
+2. Reset the board. The UI lists the folders and files of one directory, starting in the folder of the
+   last-run app (the root the first time). If `auto_boot_timeout` is set and a last-run app exists, a
    countdown starts (any key or touch cancels it). Auto-boot is skipped when an app deliberately returns to
    the bootloader.
-3. Pick a file to load. A progress bar is shown; the app starts when flashing finishes.
+3. Pick a folder to open it (`..` / `u` goes back up), or a file to load. A progress bar is shown; the app starts when flashing finishes.
 
 **Refresh after copying:** the bootloader and the USB host both read the card but do not stay in sync live.
 After adding or changing files over USB, use *Refresh* (or `r`) so the list — and the bootloader's view of
@@ -118,7 +119,8 @@ Open the CDC port (e.g. `screen /dev/ttyACM0 115200`). It runs alongside the LVG
 
 | Input | Action |
 |---|---|
-| a number | load that file |
+| a number | open that folder (`[DIR]`) or load that file |
+| `u` / `..` | go up one folder (`/` jumps to the root) |
 | `n` / `p` | next / previous page (20 entries per page, `showing 21-40 over 110`) |
 | `r` | refresh: remount the card and rescan |
 | `info` | storage diagnostics: card state and FatFs result, capacity, files listed, USB write lock, stack and heap headroom |
@@ -130,7 +132,7 @@ Failures print a line naming the step (`load: verify failed at image offset ...`
 
 ### LVGL UI
 
-Title "PicoBoot" / "by Lohengrin", a list of the `.bin` files, **Refresh** and **Reboot** buttons (kept in the
+Title "PicoBoot" / "by Lohengrin", a list of the current folder (sub-folders first, then the `.bin` files; a `..` row goes up), **Refresh** and **Reboot** buttons (kept in the
 header so the list has the vertical space), a status row (auto-boot countdown, errors) and a graphical
 progress bar. Input by board: touch (LCD boards), USB keyboard / mouse / gamepad (Waveshare HDMI; arrows or
 Tab move, Enter selects), or the three buttons on the Pico DV (**A** down, **B** up, **C** select).
@@ -140,9 +142,12 @@ Tab move, Enter selects), or the three buttons on the Pico DV (**A** down, **B**
 A text file in the card's root, created on first load:
 
 ```
-last_run=myapp.bin
+last_run=games/myapp.bin
 auto_boot_timeout=30
 ```
+
+`last_run` is the path from the card root (`myapp.bin` for a root file). Browsing is one level per view and
+not recursive; each folder lists at most 512 entries.
 
 `auto_boot_timeout` is in seconds; `0` disables auto-boot (default 30).
 
@@ -226,7 +231,7 @@ made in the submodule.
 ```
 boot_core/     fast-boot tag, VTOR jump, streaming flash writer, image checks
 config/        picoboot.cfg
-storage/       AppCatalog (list of .bin files)
+storage/       AppCatalog (folders and .bin files of one directory)
 app_manager/   load-and-boot orchestration
 usb/           USB bridge: SD card raw sectors <-> mass-storage
 ui/            BootUi interface; serial/ and lvgl/ backends; lv_conf.h

@@ -15,6 +15,7 @@ constexpr int kHeaderHeightWide = 36;
 constexpr int kHeaderHeightNarrow = 46; // title over subtitle
 constexpr int kNarrowWidth = 400;
 constexpr int kStatusHeight = 34; // two lines: error messages wrap
+constexpr size_t kUpRow = static_cast<size_t>(-1); // user data of the ".." row
 } // namespace
 
 struct LvglUiCallbacks {
@@ -22,8 +23,14 @@ struct LvglUiCallbacks {
     static void reboot(lv_event_t* e) { static_cast<LvglUi*>(lv_event_get_user_data(e))->m_pending = LvglUi::Pending::kReboot; }
     static void select(lv_event_t* e) {
         auto* ui = static_cast<LvglUi*>(lv_event_get_user_data(e));
-        ui->m_pending = LvglUi::Pending::kLoad;
-        ui->m_pending_index = reinterpret_cast<size_t>(lv_obj_get_user_data(lv_event_get_target_obj(e)));
+        const size_t index = reinterpret_cast<size_t>(lv_obj_get_user_data(lv_event_get_target_obj(e)));
+        ui->m_pending_index = index;
+        if (index == kUpRow) {
+            ui->m_pending = LvglUi::Pending::kUp;
+        } else {
+            const AppBinaryEntry* entry = ui->m_manager.catalog().find(index);
+            ui->m_pending = entry && entry->is_dir ? LvglUi::Pending::kEnter : LvglUi::Pending::kLoad;
+        }
     }
 };
 
@@ -133,18 +140,33 @@ void LvglUi::populate() {
     }
 
     const AppCatalog& catalog = m_manager.catalog();
+    if (!catalog.in_root()) {
+        std::string where = "/" + catalog.cwd();
+        lv_list_add_text(m_list, where.c_str());
+        lv_obj_t* up = lv_list_add_button(m_list, LV_SYMBOL_LEFT, "..");
+        lv_obj_set_user_data(up, reinterpret_cast<void*>(kUpRow));
+        lv_obj_add_event_cb(up, LvglUiCallbacks::select, LV_EVENT_CLICKED, this);
+    }
     const size_t shown = std::min(catalog.count(), kMaxListEntries);
+    lv_obj_t* reselect = nullptr;
     for (size_t i = 0; i < shown; ++i) {
         const AppBinaryEntry* entry = catalog.find(i);
         char text[96];
-        snprintf(text, sizeof(text), "%s  (%lu KB)", entry->filename.c_str(),
-                 static_cast<unsigned long>((entry->size_bytes + 1023) / 1024));
-        lv_obj_t* btn = lv_list_add_button(m_list, LV_SYMBOL_FILE, text);
+        if (entry->is_dir) {
+            snprintf(text, sizeof(text), "%s", entry->filename.c_str());
+        } else {
+            snprintf(text, sizeof(text), "%s  (%lu KB)", entry->filename.c_str(),
+                     static_cast<unsigned long>((entry->size_bytes + 1023) / 1024));
+        }
+        lv_obj_t* btn = lv_list_add_button(m_list, entry->is_dir ? LV_SYMBOL_DIRECTORY : LV_SYMBOL_FILE, text);
         lv_obj_set_user_data(btn, reinterpret_cast<void*>(i));
         lv_obj_add_event_cb(btn, LvglUiCallbacks::select, LV_EVENT_CLICKED, this);
+        if (entry->is_dir && entry->filename == m_reselect) reselect = btn;
     }
+    m_reselect.clear();
+    if (reselect) lv_obj_scroll_to_view(reselect, LV_ANIM_OFF);
     if (catalog.count() == 0) {
-        lv_list_add_text(m_list, "(no .bin files found)");
+        lv_list_add_text(m_list, "(no folders or .bin files found)");
     } else if (catalog.count() > shown || catalog.truncated()) {
         lv_list_add_text(m_list, "(list truncated)");
     }
@@ -162,7 +184,7 @@ void LvglUi::start_countdown() {
     if (!m_allow_auto_boot || cfg.auto_boot_timeout_s == 0 || cfg.last_run_binary.empty()) return;
     const AppCatalog& catalog = m_manager.catalog();
     for (size_t i = 0; i < catalog.count(); ++i) {
-        if (catalog.find(i)->filename == cfg.last_run_binary) {
+        if (catalog.find(i)->path == cfg.last_run_binary) {
             m_countdown_index = i;
             m_countdown_ms = cfg.auto_boot_timeout_s * 1000;
             m_countdown_start_tick = lv_tick_get();
@@ -194,7 +216,7 @@ void LvglUi::update_countdown() {
         m_countdown_shown = seconds;
         char text[96];
         snprintf(text, sizeof(text), "Auto-boot '%s' in %d s (touch to cancel)",
-                 m_manager.catalog().find(m_countdown_index)->filename.c_str(), seconds);
+                 m_manager.catalog().find(m_countdown_index)->path.c_str(), seconds);
         set_status(text);
     }
 }
@@ -226,6 +248,17 @@ void LvglUi::load(size_t index) {
     }
 }
 
+void LvglUi::navigate(bool up, size_t index) {
+    m_countdown_active = false;
+    if (up) {
+        m_manager.browse_up(&m_reselect);
+    } else {
+        m_manager.browse_into(index);
+    }
+    populate();
+    set_status(m_manager.card_present() ? "" : m_manager.card_message());
+}
+
 void LvglUi::poll() {
     if (!m_built) {
         build();
@@ -253,6 +286,12 @@ void LvglUi::poll() {
             FastBoot::reboot_into_bootloader();
         case Pending::kLoad:
             load(m_pending_index);
+            break;
+        case Pending::kEnter:
+            navigate(false, m_pending_index);
+            break;
+        case Pending::kUp:
+            navigate(true, 0);
             break;
         case Pending::kNone:
             break;

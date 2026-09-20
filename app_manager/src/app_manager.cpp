@@ -19,11 +19,36 @@ namespace picoboot {
 bool AppManager::refresh() {
     m_sd_card.init(m_sd_config);
     storage_note_remount(); // clears a failed state; the USB drive re-reads the medium
-    m_catalog.refresh(m_sd_card);
     if (m_sd_card.is_mounted()) {
         m_config.load();
+        if (!m_dir_from_config) {
+            // Start where the last app came from (the catalog falls back to the root
+            // if that folder is gone).
+            m_dir_from_config = true;
+            const size_t slash = m_config.last_run_binary.rfind('/');
+            m_catalog.set_directory(slash == std::string::npos ? std::string()
+                                                               : m_config.last_run_binary.substr(0, slash));
+        }
     }
+    m_catalog.refresh(m_sd_card);
     return m_sd_card.is_mounted();
+}
+
+bool AppManager::browse_into(size_t index) {
+    if (!m_catalog.enter(index)) return false;
+    refresh(); // remounts: the host may have changed the volume over USB
+    return true;
+}
+
+void AppManager::browse_root() {
+    m_catalog.set_directory({});
+    refresh();
+}
+
+bool AppManager::browse_up(std::string* left) {
+    if (!m_catalog.up(left)) return false;
+    refresh();
+    return true;
 }
 
 bool AppManager::card_present() const { return m_sd_card.is_mounted() && !storage_failed(); }
@@ -113,7 +138,7 @@ struct WriteLockGuard {
 LoadResult AppManager::load_and_boot(const AppBinaryEntry& entry, const ProgressSink& sink) {
     WriteLockGuard write_lock;
     const size_t partition_size = app_partition_size(PICO_FLASH_SIZE_BYTES);
-    const char* name = entry.filename.c_str();
+    const char* name = entry.path.c_str();
 
     // The file's real size (the catalog's may be stale if the host changed it).
     struct stat st{};
@@ -212,8 +237,8 @@ LoadResult AppManager::load_and_boot(const AppBinaryEntry& entry, const Progress
 
     // Remember the app -- but only write the file when something changed: fewer
     // card writes, and less chance of touching the FAT while a host has it mounted.
-    if (m_config.last_run_binary != entry.filename) {
-        m_config.last_run_binary = entry.filename;
+    if (m_config.last_run_binary != entry.path) {
+        m_config.last_run_binary = entry.path;
         if (!m_config.save()) {
             printf("warning: could not save picoboot.cfg (errno %d); auto-boot will not remember '%s'\n", errno, name);
         }

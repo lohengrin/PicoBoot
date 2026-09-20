@@ -22,7 +22,7 @@ public:
     void poll() override;
 
 private:
-    enum class Pending { kNone, kRefresh, kReboot, kLoad };
+    enum class Pending { kNone, kRefresh, kReboot, kLoad, kEnter, kUp };
 
     void build();
     void populate();
@@ -30,6 +30,7 @@ private:
     void start_countdown();
     void update_countdown();
     void load(size_t index);
+    void navigate(bool up, size_t index);
     static void on_progress(void* ctx, float fraction);
 
     AppManager& m_manager;
@@ -43,6 +44,7 @@ private:
 
     Pending m_pending = Pending::kNone;
     size_t m_pending_index = 0;
+    std::string m_reselect; // folder just left: scrolled into view after going up
     int m_last_percent = -1;
 
     bool m_allow_auto_boot;

@@ -41,25 +41,31 @@ void SerialUi::show_menu() {
         fflush(stdout);
         return;
     }
+    if (!catalog.in_root()) printf("  Folder: /%s\n", catalog.cwd().c_str());
     if (count == 0) {
-        printf("  (no .bin files found)\n");
+        printf("  (no folders or .bin files found)\n");
     } else {
         const size_t start = m_page * kPageSize;
         auto entries = catalog.page(start, kPageSize);
         for (size_t i = 0; i < entries.size(); ++i) {
-            printf("%4zu. %s (%lu bytes)\n", start + i + 1, entries[i].filename.c_str(),
-                   static_cast<unsigned long>(entries[i].size_bytes));
+            if (entries[i].is_dir) {
+                printf("%4zu. [DIR] %s/\n", start + i + 1, entries[i].filename.c_str());
+            } else {
+                printf("%4zu. %s (%lu bytes)\n", start + i + 1, entries[i].filename.c_str(),
+                       static_cast<unsigned long>(entries[i].size_bytes));
+            }
         }
         if (pages > 1) {
             printf("showing %zu-%zu over %zu\n", start + 1, start + entries.size(), count);
         }
         if (catalog.truncated()) {
-            printf("(only the first %zu files are listed)\n", AppCatalog::kMaxEntries);
+            printf("(only the first %zu entries are listed)\n", AppCatalog::kMaxEntries);
         }
     }
 
     printf("Actions:");
-    if (count > 0) printf(" [1-%zu] load", count);
+    if (count > 0) printf(" [1-%zu] open/load", count);
+    if (!catalog.in_root()) printf("  [u]p  [/]root");
     if (m_page + 1 < pages) printf("  [n]ext page");
     if (m_page > 0) printf("  [p]revious page");
     printf("  [r]efresh  [info]  [reboot]  [bootsel]");
@@ -78,7 +84,7 @@ void SerialUi::print_progress(void*, float fraction) {
 }
 
 void SerialUi::load(const AppBinaryEntry& entry) {
-    printf("Loading '%s'...\n", entry.filename.c_str());
+    printf("Loading '%s'...\n", entry.path.c_str());
     fflush(stdout);
     const ProgressSink sink{print_progress, this};
     const LoadResult result = m_manager.load_and_boot(entry, sink);
@@ -109,6 +115,12 @@ void SerialUi::handle_line(const std::string& raw) {
         printf("Refreshing...\n");
         m_manager.refresh();
         m_page = 0;
+    } else if (line == "u" || line == "..") {
+        std::string left;
+        if (m_manager.browse_up(&left)) m_page = 0; else printf("Already at the root.\n");
+    } else if (line == "/") {
+        m_manager.browse_root();
+        m_page = 0;
     } else if (line == "n") {
         if (m_page + 1 < pages) ++m_page;
     } else if (line == "p") {
@@ -116,7 +128,10 @@ void SerialUi::handle_line(const std::string& raw) {
     } else if (std::all_of(line.begin(), line.end(), [](unsigned char c) { return std::isdigit(c); })) {
         const unsigned long choice = strtoul(line.c_str(), nullptr, 10);
         const AppBinaryEntry* entry = choice >= 1 ? m_manager.catalog().find(choice - 1) : nullptr;
-        if (entry) {
+        if (entry && entry->is_dir) {
+            m_manager.browse_into(choice - 1);
+            m_page = 0;
+        } else if (entry) {
             load(*entry);
         } else {
             printf("No entry %s.\n", line.c_str());
@@ -154,7 +169,7 @@ void SerialUi::update_countdown() {
     const int seconds = static_cast<int>((remaining_us + 999'999) / 1'000'000);
     if (seconds != m_countdown_shown) {
         m_countdown_shown = seconds;
-        printf("\rAuto-boot '%s' in %2d s (press any key to cancel)   ", m_countdown_entry->filename.c_str(),
+        printf("\rAuto-boot '%s' in %2d s (press any key to cancel)   ", m_countdown_entry->path.c_str(),
                seconds);
         fflush(stdout);
     }
@@ -170,7 +185,7 @@ void SerialUi::poll() {
         if (m_allow_auto_boot && cfg.auto_boot_timeout_s > 0 && !cfg.last_run_binary.empty()) {
             const AppCatalog& catalog = m_manager.catalog();
             for (size_t i = 0; i < catalog.count(); ++i) {
-                if (catalog.find(i)->filename == cfg.last_run_binary) {
+                if (catalog.find(i)->path == cfg.last_run_binary) {
                     m_countdown_entry = catalog.find(i);
                     m_countdown_end = make_timeout_time_ms(cfg.auto_boot_timeout_s * 1000);
                     m_countdown_active = true;
