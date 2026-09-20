@@ -32,7 +32,7 @@ brings the menu back.
 ## Supported boards
 
 Each board is a separate build directory (`-DPICOBOOT_BOARD=...`). Everything below has been run on real
-hardware.
+hardware, including normal builds on the RP2350 (address translation) and the refusal cases.
 
 | Board | `PICOBOOT_BOARD` | Chip | UI targets | Input |
 |---|---|---|---|---|
@@ -44,11 +44,11 @@ Flash footprint (bootloader reserve is 512 KiB):
 
 | Target | Flash | RAM |
 |---|---|---|
-| `picoboot_serial` | ~160 KB | ~36 KB |
-| `picoboot_lvgl_lcd` (Waveshare) | ~407 KB | ~173 KB of 520 KB |
-| `picoboot_lvgl_dvi` (Waveshare) | ~434 KB | ~327 KB of 520 KB |
-| `picoboot_lvgl_crowpanel` | ~421 KB | ~114 KB of 264 KB |
-| `picoboot_lvgl_dvi` (Pico DV) | ~421 KB | ~189 KB of 264 KB |
+| `picoboot_serial` | ~160 KiB | ~39 KiB |
+| `picoboot_lvgl_lcd` (Waveshare) | ~399 KiB | ~173 KiB of 520 KiB |
+| `picoboot_lvgl_dvi` (Waveshare) | ~425 KiB | ~323 KiB of 520 KiB |
+| `picoboot_lvgl_crowpanel` | ~412 KiB | ~115 KiB of 264 KiB |
+| `picoboot_lvgl_dvi` (Pico DV) | ~413 KiB | ~188 KiB of 264 KiB |
 
 ## Building
 
