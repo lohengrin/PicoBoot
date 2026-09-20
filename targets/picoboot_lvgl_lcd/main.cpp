@@ -32,6 +32,7 @@
 #include "pico/stdlib.h"
 
 #include <cstdio>
+#include <utility>
 
 namespace {
 constexpr size_t kDrawRows = 40;
@@ -86,7 +87,14 @@ int main() {
     static pico_toolset::LvglDisplayAdapter adapter;
     adapter.init(g_lcd, {g_draw_buffer, sizeof(g_draw_buffer) / sizeof(g_draw_buffer[0])});
     const pico_toolset::Xpt2046Calibration cal;
-    adapter.add_touch(touch, {cal.swap_axes, cal.raw_h_min, cal.raw_h_max, cal.raw_v_min, cal.raw_v_max});
+    pico_toolset::LvglTouchCalibration touch_cal{cal.swap_axes, cal.raw_h_min, cal.raw_h_max, cal.raw_v_min,
+                                                 cal.raw_v_max};
+#ifdef PICOBOOT_LCD_ST7796
+    // The toolset's default calibration was measured on the ILI9486 panel. The ST7796U panel's
+    // touch reads the horizontal axis mirrored: flip that axis only (vertical is unchanged).
+    std::swap(touch_cal.raw_h_min, touch_cal.raw_h_max);
+#endif
+    adapter.add_touch(touch, touch_cal);
     printf("PicoBoot LVGL: adapter ok\n");
 
     // Both UIs run side by side: the LCD is the primary one (owns the
