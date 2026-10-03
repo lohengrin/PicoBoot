@@ -186,7 +186,7 @@ normal build that stores data in flash at a low offset (e.g. "just after my prog
 bootloader. Apps that store data at the end of flash are fine. The mapping is undone by the next reset.
 
 To return to the bootloader from the app, reboot with the shared tag (this is what `testapps/app_reboot_to_bootloader`
-does; the value lives in `boot_core/include/picoboot/boot_tags.h`):
+does; the value lives in `include/picoboot/boot_tags.h`):
 
 ```cpp
 #include "pico_toolset/reset_buttons.h"
@@ -236,13 +236,15 @@ made in the submodule.
 ## Repository layout
 
 ```
-boot_core/     fast-boot tag, VTOR jump, streaming flash writer, image checks
-config/        picoboot.cfg
-storage/       AppCatalog (folders and .bin files of one directory)
-app_manager/   load-and-boot orchestration
-usb/           USB bridge: SD card raw sectors <-> mass-storage
-ui/            BootUi interface; serial/ and lvgl/ backends; lv_conf.h
-targets/       one directory per firmware image; common/board.h holds per-board presets
+include/picoboot/   every public header (flat); board.h holds the per-board presets
+src/               one folder per layer:
+  boot_core/         fast-boot tag, VTOR jump, streaming flash writer, image checks
+  config/            picoboot.cfg
+  storage/           AppCatalog (folders and .bin files of one directory), storage state
+  app_manager/       load-and-boot orchestration
+  usb/               USB bridge: SD card raw sectors <-> mass-storage
+  ui/                serial/ and lvgl/ backends (lvgl/ also holds lv_conf.h)
+targets/           one directory per firmware image (main.cpp + CMake)
 testapps/      bring-up applications and the linker template
 cmake/         flash layout (single source of truth), app linker helper, board selection
 docs/          architecture and design notes
@@ -258,8 +260,8 @@ third_party/pico-toolset   git submodule
   (`0x10080000`); a normal build is refused with the reason and the fix.
 - **Normal builds and flash writes (RP2350):** see the caution in *Making an application*.
 - **Card and drive:** the drive is FAT12/16/32 or exFAT (first partition; a GPT-partitioned card is reported as
-  "no FAT/exFAT volume"). The bootloader lists `.bin` files in the **root folder** only, skips hidden/system
-  files and `._*` sidecars, and shows at most 512 files. A removed card is noticed by the drive within a second;
+  "no FAT/exFAT volume"). The bootloader browses one folder at a time (folders first, then `.bin` files), skips
+  hidden/system files and `._*` sidecars, and shows at most 512 entries per folder. A removed card is noticed by the drive within a second;
   press *Refresh* after re-inserting it. A host "eject" flushes the card and hides the drive until you press
   *Refresh* (or replug).
 - **Video stalls briefly while flashing** on the HDMI targets (the video core is parked one 16 KiB block at a

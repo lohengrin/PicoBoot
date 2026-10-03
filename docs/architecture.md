@@ -295,7 +295,7 @@ variant flashed it. Measured so far: `picoboot_serial` uses ~56KB of the
 512KB reserve (Phase 1 skeleton, before SD/USB/LVGL are added) — comfortable
 margin. Revisit at Phase 7 once a real `picoboot_lvgl_dvi` image exists.
 Single source of truth: [`cmake/picoboot_flash_layout.cmake`](../cmake/picoboot_flash_layout.cmake),
-consumed by [`boot_core/include/picoboot/flash_layout.h.in`](../boot_core/include/picoboot/flash_layout.h.in)
+consumed by [`include/picoboot/flash_layout.h.in`](../include/picoboot/flash_layout.h.in)
 and every testapp's linker override.
 
 ### App vector table offset (chip-dependent, verified on RP2350)
@@ -312,7 +312,7 @@ PicoBoot's VTOR relocation is never cold-booted by the on-chip ROM (only
 warm-jumped into from the already-running bootloader), boot2 -- present or
 not -- is unused either way; the only thing that matters is matching wherever
 the linker actually placed the vector table. See
-[`boot_core/src/vtor_jump.cpp`](../boot_core/src/vtor_jump.cpp)'s
+[`src/boot_core/vtor_jump.cpp`](../src/boot_core/vtor_jump.cpp)'s
 `kVectorTableOffset`. **The RP2040 branch (offset `0x100`) is not yet
 hardware-verified** — re-check the same way (inspect a real built `.bin`)
 during Phase 8's RP2040 bring-up before relying on it.
@@ -324,6 +324,6 @@ Reused as-is from Pico-Toolset: `pico_toolset_sdcard`, `pico_toolset_reset_butto
 and `dvi_hdmi`. Net-new, proposed as Pico-Toolset contributions once
 hardware-proven: `pico_toolset_usb_composite` (Phase 4) and
 `pico_toolset_lvgl_display` (Phase 6/7). Net-new, PicoBoot-only: everything
-under `boot_core/`, `config/`, `storage/`, `app_manager/`, `ui/` (safety-critical
+under `src/` and `include/` (`boot_core`, `config`, `storage`, `app_manager`, `ui`; safety-critical
 or bootloader-specific business logic that doesn't belong in a shared driver
 library). See the repo's phased delivery plan for the full 9-phase breakdown.

@@ -1,9 +1,9 @@
 // picoboot_lvgl_crowpanel: bootloader with the LVGL UI on the CrowPanel
 // PICO HMI 2.8" (RP2040, 320x240 ST7789 + XPT2046 touch + uSD on SPI1).
 
-#include "lvgl_ui.h"
-#include "serial_ui.h"
-#include "board.h"
+#include "picoboot/lvgl_ui.h"
+#include "picoboot/serial_ui.h"
+#include "picoboot/board.h"
 
 #include "picoboot/app_manager.h"
 #include "picoboot/fastboot.h"

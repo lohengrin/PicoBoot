@@ -1,4 +1,4 @@
-#include "screenshot.h"
+#include "picoboot/screenshot.h"
 
 #include <cstdint>
 #include <cstring>

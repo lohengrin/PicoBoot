@@ -1,6 +1,6 @@
 // picoboot_serial: bootloader with the serial (CDC) UI.
 
-#include "serial_ui.h"
+#include "picoboot/serial_ui.h"
 
 #include "picoboot/app_manager.h"
 #include "picoboot/fastboot.h"
@@ -11,7 +11,7 @@
 
 #include "pico_toolset/sdcard.h"
 #include "pico_toolset/sdcard_configs.h"
-#include "board.h"
+#include "picoboot/board.h"
 
 #include "pico/stdlib.h"
 

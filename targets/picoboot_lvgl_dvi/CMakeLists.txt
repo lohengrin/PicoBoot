@@ -2,7 +2,6 @@
 # Waveshare RP2350-PiZero (USB keyboard/mouse) or Pico DV + Pico (W) (3 buttons).
 # The serial UI runs alongside for control.
 add_executable(picoboot_lvgl_dvi main.cpp)
-target_include_directories(picoboot_lvgl_dvi PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../common)
 
 target_link_libraries(picoboot_lvgl_dvi PRIVATE
     pico_stdlib

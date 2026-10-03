@@ -43,7 +43,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 pico_sdk_init()
 
-# Selects the per-board presets in targets/common/board.h.
+# Selects the per-board presets in include/picoboot/board.h.
 add_compile_definitions(PICOBOOT_BOARD_${PICOBOOT_BOARD_UPPER}=1)
 
 # Pull in only the Pico-Toolset components each phase needs -- following
@@ -110,20 +110,15 @@ endif()
 if(NOT PICOBOOT_BOARD STREQUAL "crowpanel_pico_hmi_28")
     add_subdirectory(${TOOLSET_ROOT}/components/dvi_hdmi ${CMAKE_BINARY_DIR}/_toolset/dvi_hdmi EXCLUDE_FROM_ALL)
 endif()
-set(LV_CONF_PATH ${CMAKE_CURRENT_LIST_DIR}/ui/lvgl/lv_conf.h)
+set(LV_CONF_PATH ${CMAKE_CURRENT_LIST_DIR}/src/ui/lvgl/lv_conf.h)
 include(${TOOLSET_ROOT}/cmake/pico_lvgl.cmake)
 if(NOT PICOBOOT_BOARD STREQUAL "waveshare_pizero")
-    # 264 KB of RAM: a smaller LVGL heap (see ui/lvgl/lv_conf.h).
+    # 264 KB of RAM: a smaller LVGL heap (see src/ui/lvgl/lv_conf.h).
     target_compile_definitions(lvgl PUBLIC PICOBOOT_LV_MEM_KB=56)
 endif()
 add_subdirectory(${TOOLSET_ROOT}/components/lvgl_display ${CMAKE_BINARY_DIR}/_toolset/lvgl_display EXCLUDE_FROM_ALL)
 
-add_subdirectory(boot_core)
-add_subdirectory(storage)
-add_subdirectory(config)
-add_subdirectory(app_manager)
-add_subdirectory(usb)
-add_subdirectory(ui)
+add_subdirectory(src)
 add_subdirectory(targets/picoboot_serial)
 if(PICOBOOT_BOARD STREQUAL "waveshare_pizero")
     add_subdirectory(targets/picoboot_lvgl_lcd)

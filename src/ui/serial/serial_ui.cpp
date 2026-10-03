@@ -1,4 +1,4 @@
-#include "serial_ui.h"
+#include "picoboot/serial_ui.h"
 
 #include "picoboot/fastboot.h"
 #include "picoboot/flash_layout.h"

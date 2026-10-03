@@ -4,8 +4,8 @@
 // the default) or an ST7796U panel (SunFounder 3.5" IPS): the second target is
 // this file built with PICOBOOT_LCD_ST7796.
 
-#include "lvgl_ui.h"
-#include "serial_ui.h"
+#include "picoboot/lvgl_ui.h"
+#include "picoboot/serial_ui.h"
 
 #include "picoboot/app_manager.h"
 #include "picoboot/fastboot.h"
@@ -27,7 +27,7 @@
 #include "pico_toolset/usb_hid_host.h"
 #include "pico_toolset/sdcard.h"
 #include "pico_toolset/sdcard_configs.h"
-#include "board.h"
+#include "picoboot/board.h"
 #include "pico_toolset/xpt2046.h"
 #include "pico_toolset/xpt2046_calibration.h"
 #include "pico_toolset/xpt2046_configs.h"
@@ -56,7 +56,7 @@ void pump_usb() {
 }
 } // namespace
 
-// Called from LVGL's LV_ASSERT_HANDLER (see ui/lvgl/lv_conf.h): show a red
+// Called from LVGL's LV_ASSERT_HANDLER (see src/ui/lvgl/lv_conf.h): show a red
 // screen and repeat the message over CDC instead of hanging silently.
 extern "C" void picoboot_lvgl_assert(void) {
     g_lcd.fill_solid(0xF800);

@@ -8,8 +8,7 @@ include(${CMAKE_CURRENT_LIST_DIR}/../../cmake/picoboot_app_linker.cmake)
 
 function(picoboot_add_lcd_target NAME PANEL_LIB)
     add_executable(${NAME} ${CMAKE_CURRENT_LIST_DIR}/main.cpp)
-    target_include_directories(${NAME} PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../common)
-
+    
     target_link_libraries(${NAME} PRIVATE
         pico_stdlib
         picoboot_boot_core

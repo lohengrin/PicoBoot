@@ -2,7 +2,6 @@
 # 320x240 ST7789 + XPT2046 touch + uSD, all on SPI1. No USB host on this
 # board; the serial UI runs alongside for control.
 add_executable(picoboot_lvgl_crowpanel main.cpp)
-target_include_directories(picoboot_lvgl_crowpanel PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../common)
 
 target_link_libraries(picoboot_lvgl_crowpanel PRIVATE
     pico_stdlib

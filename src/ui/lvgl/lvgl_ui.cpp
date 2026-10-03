@@ -1,8 +1,8 @@
-#include "lvgl_ui.h"
+#include "picoboot/lvgl_ui.h"
 
 #include "picoboot/fastboot.h"
 #include "picoboot/storage_state.h"
-#include "screenshot.h"
+#include "picoboot/screenshot.h"
 
 #include "pico/stdlib.h"
 

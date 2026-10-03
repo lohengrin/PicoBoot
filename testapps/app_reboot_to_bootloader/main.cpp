@@ -1,7 +1,7 @@
 // Test app for PicoBoot's Phase 3/5 testing: blinks briefly (visible proof
 // of life) then requests a return to the bootloader UI, exercising the
 // app->bootloader round trip end to end. Links pico_toolset_reset_buttons
-// directly and reuses picoboot::BootTag (boot_core/include/picoboot/
+// directly and reuses picoboot::BootTag (include/picoboot/
 // boot_tags.h) so the tag value can never drift out of sync with the
 // bootloader's own FastBoot.
 #include "picoboot/boot_tags.h"

@@ -10,9 +10,9 @@
 // Either way the encoder doubles pixels horizontally and DVI_VERTICAL_REPEAT
 // doubles rows, giving square pixels on 640x480p60.
 
-#include "lvgl_ui.h"
-#include "serial_ui.h"
-#include "board.h"
+#include "picoboot/lvgl_ui.h"
+#include "picoboot/serial_ui.h"
+#include "picoboot/board.h"
 
 #include "picoboot/app_manager.h"
 #include "picoboot/fastboot.h"

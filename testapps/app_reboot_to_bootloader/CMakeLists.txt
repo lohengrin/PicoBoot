@@ -32,7 +32,7 @@ target_link_libraries(app_reboot_to_bootloader PRIVATE
     pico_toolset_reset_buttons
 )
 target_include_directories(app_reboot_to_bootloader PRIVATE
-    ${CMAKE_CURRENT_LIST_DIR}/../../boot_core/include
+    ${CMAKE_CURRENT_LIST_DIR}/../../include
 )
 
 include(${CMAKE_CURRENT_LIST_DIR}/../../cmake/picoboot_app_linker.cmake)
