@@ -206,6 +206,19 @@ USB stacks: the device stack (MSC+CDC, native port) and the PIO-USB host
 (HID) share one TinyUSB build, hence one `tusb_config.h`; the composite has
 a device-only and a `_hid` variant built against the matching config.
 
+USB mass-storage throughput (`usb_bridge.cpp`): the card is clocked at 15 MHz on the
+Pi Zero (`board.h`) and TinyUSB's MSC buffer is 16 KB, but the big win is overlapping
+the card with the USB wire, which otherwise run one after the other. *Read-ahead*:
+after a sequential READ(10), `usb_bridge_task()` reads the next chunk into RAM while
+the USB hardware is still sending the current one. *Write-behind*: WRITE(10) copies
+its chunk to a queue and returns; the card write happens from `usb_bridge_task()`
+while the next chunk arrives. Every path that can observe the card (reads,
+SYNCHRONIZE CACHE, eject, remount) commits the queue first, writes/remounts drop the
+read-ahead, and a failed deferred commit is reported on the host's next WRITE(10) or
+SYNCHRONIZE CACHE. Measured on the Pi Zero: ~490 kB/s -> ~830 kB/s both ways (USB
+full-speed ceiling is ~0.9 MB/s). `-DPICOBOOT_USB_STATS=ON` prints per-burst timings
+over CDC.
+
 Application images are inspected before flashing (`image_check`, from the
 raw `.bin`): size against the partition; the **chip family** (RP2040: the
 256-byte boot stage's CRC32; RP2350: the picobin image-definition block in

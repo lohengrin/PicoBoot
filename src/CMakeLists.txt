@@ -81,6 +81,11 @@ target_link_libraries(picoboot_usb PUBLIC
     pico_toolset_sdcard
     picoboot_storage
 )
+# Prints per-burst throughput/latency statistics over CDC (see usb_bridge.cpp).
+option(PICOBOOT_USB_STATS "Print USB mass-storage throughput statistics over CDC" OFF)
+if(PICOBOOT_USB_STATS)
+    target_compile_definitions(picoboot_usb PRIVATE PICOBOOT_USB_STATS)
+endif()
 
 # --- ui: BootUi interface + backends. Depend on app_manager only.
 add_library(picoboot_ui_serial STATIC ui/serial/serial_ui.cpp)
