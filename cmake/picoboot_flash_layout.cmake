@@ -14,6 +14,12 @@ set(PICOBOOT_FLASH_XIP_BASE 0x10000000)
 # include/picoboot/flash_layout.h.in for full rationale.
 # Revisit only with real picoboot_lvgl_dvi .uf2 sizes in hand (Phase 7).
 set(PICOBOOT_BOOT_RESERVE_SIZE 0x80000) # 512 KiB
+# Pimoroni Presto (16 MB flash): the Bluetooth stack and the CYW43 firmware need a
+# larger bootloader, so its partition starts at 1 MiB. Applications for that board are
+# linked against this value like any other (PICOBOOT_TEST_BOARD for the test apps).
+if("${PICOBOOT_BOARD}" STREQUAL "presto" OR "${PICOBOOT_TEST_BOARD}" STREQUAL "presto")
+    set(PICOBOOT_BOOT_RESERVE_SIZE 0x100000) # 1 MiB
+endif()
 
 math(EXPR PICOBOOT_APP_FLASH_ORIGIN_DEC "${PICOBOOT_FLASH_XIP_BASE} + ${PICOBOOT_BOOT_RESERVE_SIZE}")
 math(EXPR PICOBOOT_APP_FLASH_ORIGIN "${PICOBOOT_APP_FLASH_ORIGIN_DEC}" OUTPUT_FORMAT HEXADECIMAL)

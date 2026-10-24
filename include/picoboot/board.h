@@ -21,6 +21,8 @@ inline const pico_toolset::SdCardConfig& sd_config() {
     return cfg;
 #elif defined(PICOBOOT_BOARD_CROWPANEL_PICO_HMI_28)
     return pico_toolset::configs::sdcard::kElecrowCrowPanelPicoHmi28;
+#elif defined(PICOBOOT_BOARD_PRESTO)
+    return pico_toolset::configs::sdcard::kPimoroniPresto;
 #elif defined(PICOBOOT_BOARD_PICO_DV)
     return pico_toolset::configs::sdcard::kPicoDvCarrier;
 #else
