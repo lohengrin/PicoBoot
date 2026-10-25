@@ -41,8 +41,10 @@ hardware, including normal builds on the RP2350 (address translation) and the re
 | Waveshare RP2350-PiZero | `waveshare_pizero` (default) | RP2350 | serial; **LCD** (external 3.5" **ILI9486** or **ST7796U** panel + touch); **HDMI** | touch (LCD); USB keyboard / mouse / gamepad on the PIO-USB port (LCD and HDMI) |
 | Elecrow CrowPanel PICO HMI 2.8" | `crowpanel_pico_hmi_28` | RP2040 | serial; **LVGL on the built-in ST7789** | touch |
 | "Pico DV" carrier + Pico W | `pico_dv` | RP2040 | serial; **LVGL on HDMI** | 3 buttons |
+| Pimoroni Presto | `presto` | RP2350B | serial; **LVGL on the built-in 480x480 ST7701** (8-bit palette) | touch; Bluetooth LE keyboard / mouse / gamepad (pairing panel behind the header **BT** button); QwSTPad (D-pad, A/B, +/- = page down/up) |
 
-Flash footprint (bootloader reserve is 512 KiB):
+Flash footprint (bootloader reserve is 512 KiB; **1 MiB on the Presto**, whose Bluetooth stack and CYW43
+firmware need it, so Presto applications are linked at `0x10100000` and the Presto is built with `-O2`):
 
 | Target | Flash | RAM |
 |---|---|---|
@@ -51,6 +53,7 @@ Flash footprint (bootloader reserve is 512 KiB):
 | `picoboot_lvgl_dvi` (Waveshare) | ~378 KiB | ~321 KiB of 520 KiB |
 | `picoboot_lvgl_crowpanel` | ~365 KiB | ~117 KiB of 264 KiB |
 | `picoboot_lvgl_dvi` (Pico DV) | ~366 KiB | ~186 KiB of 264 KiB |
+| `picoboot_lvgl_presto` | ~850 KiB | ~460 KiB of 520 KiB |
 
 ## Building
 

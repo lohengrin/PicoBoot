@@ -22,6 +22,10 @@ constexpr size_t kUpRow = static_cast<size_t>(-1); // user data of the ".." row
 
 struct LvglUiCallbacks {
     static void refresh(lv_event_t* e) { static_cast<LvglUi*>(lv_event_get_user_data(e))->m_pending = LvglUi::Pending::kRefresh; }
+    static void header_button(lv_event_t* e) {
+        const auto* button = static_cast<const LvglUi::HeaderButton*>(lv_event_get_user_data(e));
+        button->callback(button->user);
+    }
     static void reboot(lv_event_t* e) { static_cast<LvglUi*>(lv_event_get_user_data(e))->m_pending = LvglUi::Pending::kReboot; }
     static void select(lv_event_t* e) {
         auto* ui = static_cast<LvglUi*>(lv_event_get_user_data(e));
@@ -35,6 +39,11 @@ struct LvglUiCallbacks {
         }
     }
 };
+
+void LvglUi::add_header_button(const char* label, HeaderButtonCallback callback, void* user) {
+    if (m_built || m_header_button_count >= kMaxHeaderButtons) return;
+    m_header_buttons[m_header_button_count++] = {label, callback, user};
+}
 
 LvglUi::LvglUi(AppManager& manager, pico_toolset::LvglDisplayAdapter& adapter, bool allow_auto_boot)
     : m_manager(manager), m_adapter(adapter), m_allow_auto_boot(allow_auto_boot) {}
@@ -90,6 +99,14 @@ void LvglUi::build() {
     lv_obj_set_style_border_width(spacer, 0, 0);
     lv_obj_set_style_bg_opa(spacer, LV_OPA_TRANSP, 0);
     lv_obj_set_flex_grow(spacer, 1);
+
+    for (size_t i = 0; i < m_header_button_count; ++i) {
+        lv_obj_t* btn = lv_button_create(header);
+        lv_obj_set_size(btn, narrow ? 40 : 48, 28);
+        lv_obj_add_event_cb(btn, LvglUiCallbacks::header_button, LV_EVENT_CLICKED, &m_header_buttons[i]);
+        lv_label_set_text(lv_label_create(btn), m_header_buttons[i].label);
+        lv_obj_center(lv_obj_get_child(btn, 0));
+    }
 
     lv_obj_t* btn_refresh = lv_button_create(header);
     lv_obj_set_size(btn_refresh, btn_w, 28);

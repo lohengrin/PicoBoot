@@ -49,6 +49,15 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 pico_sdk_init()
 
+# Presto has a 1 MiB reserve, so it is built for speed (-O2) rather than size: the other boards
+# need -Os to fit their 512 KiB. Besides being faster, -O2 inlines the SDK's `static inline`
+# helpers that -Os leaves out of line in flash, which must never happen in code that core 1 runs
+# while core 0 writes flash (the LCD scanout interrupts; see the Presto target). Added after the
+# build type's own flags, so it wins over -Os.
+if(PICOBOOT_BOARD STREQUAL "presto")
+    add_compile_options($<$<COMPILE_LANGUAGE:C,CXX>:-O2>)
+endif()
+
 # Selects the per-board presets in include/picoboot/board.h.
 add_compile_definitions(PICOBOOT_BOARD_${PICOBOOT_BOARD_UPPER}=1)
 
@@ -111,6 +120,12 @@ if(PICOBOOT_BOARD STREQUAL "crowpanel_pico_hmi_28")
     add_subdirectory(${TOOLSET_ROOT}/components/st7789 ${CMAKE_BINARY_DIR}/_toolset/st7789 EXCLUDE_FROM_ALL)
 endif()
 if(PICOBOOT_BOARD STREQUAL "presto")
+    # Bluetooth LE HID host on the CYW43 radio, no Wi-Fi (no lwIP / mbedtls), no Classic.
+    set(PICO_TOOLSET_BLUETOOTH_NO_WIFI ON CACHE BOOL "" FORCE)
+    set(PICO_TOOLSET_BLUETOOTH_CLASSIC OFF CACHE BOOL "" FORCE)
+    add_subdirectory(${TOOLSET_ROOT}/components/bluetooth ${CMAKE_BINARY_DIR}/_toolset/bluetooth EXCLUDE_FROM_ALL)
+    add_subdirectory(${TOOLSET_ROOT}/components/bluetooth_hid ${CMAKE_BINARY_DIR}/_toolset/bluetooth_hid EXCLUDE_FROM_ALL)
+    add_subdirectory(${TOOLSET_ROOT}/components/qwstpad ${CMAKE_BINARY_DIR}/_toolset/qwstpad EXCLUDE_FROM_ALL)
     add_subdirectory(${TOOLSET_ROOT}/components/st7701 ${CMAKE_BINARY_DIR}/_toolset/st7701 EXCLUDE_FROM_ALL)
     add_subdirectory(${TOOLSET_ROOT}/components/ft6236 ${CMAKE_BINARY_DIR}/_toolset/ft6236 EXCLUDE_FROM_ALL)
 endif()

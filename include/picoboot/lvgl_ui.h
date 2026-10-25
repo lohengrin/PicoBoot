@@ -24,6 +24,13 @@ public:
     // Saves the screen as the next screenshot_NNNN.bmp in the card root (done from poll()).
     void request_screenshot() { m_screenshot_requested = true; }
 
+    // Extra header button (left of Refresh), e.g. a board's Bluetooth panel. `callback` runs
+    // inside the LVGL event: only record the request there. At most kMaxHeaderButtons, added
+    // before the first poll() builds the screen.
+    static constexpr size_t kMaxHeaderButtons = 2;
+    using HeaderButtonCallback = void (*)(void* user);
+    void add_header_button(const char* label, HeaderButtonCallback callback, void* user);
+
 private:
     enum class Pending { kNone, kRefresh, kReboot, kLoad, kEnter, kUp };
 
@@ -45,6 +52,14 @@ private:
     lv_obj_t* m_no_card = nullptr;
     lv_obj_t* m_status = nullptr;
     lv_obj_t* m_bar = nullptr;
+
+    struct HeaderButton {
+        const char* label;
+        HeaderButtonCallback callback;
+        void* user;
+    };
+    HeaderButton m_header_buttons[kMaxHeaderButtons] = {};
+    size_t m_header_button_count = 0;
 
     bool m_screenshot_requested = false;
     Pending m_pending = Pending::kNone;

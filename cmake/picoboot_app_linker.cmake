@@ -36,15 +36,21 @@ function(picoboot_set_app_flash_region TARGET TOTAL_FLASH_SIZE)
     )
 endfunction()
 
-# picoboot_set_bootloader_flash_region(TARGET)
+# picoboot_set_bootloader_flash_region(TARGET [RESERVED_TAIL_BYTES])
 #
 # Constrains the *bootloader's own* FLASH region to [XIP base, reserve) so a
 # bootloader variant that outgrows PICOBOOT_BOOT_RESERVE_SIZE fails at link
 # time instead of silently overwriting the application partition.
+# RESERVED_TAIL_BYTES (default 0) keeps that many bytes at the end of the reserve out of the
+# image for data the bootloader stores there itself (the Bluetooth bonding keys).
 function(picoboot_set_bootloader_flash_region TARGET)
     include(${PICOBOOT_APP_LINKER_CMAKE_DIR}/picoboot_flash_layout.cmake)
+    set(_tail 0)
+    if(ARGC GREATER 1)
+        set(_tail ${ARGV1})
+    endif()
+    math(EXPR PICOBOOT_APP_FLASH_LENGTH "${PICOBOOT_BOOT_RESERVE_SIZE} - ${_tail}")
     set(PICOBOOT_APP_FLASH_ORIGIN ${PICOBOOT_FLASH_XIP_BASE})
-    set(PICOBOOT_APP_FLASH_LENGTH ${PICOBOOT_BOOT_RESERVE_SIZE})
     configure_file(
         ${PICOBOOT_APP_LINKER_CMAKE_DIR}/../testapps/linker/picoboot_app_flash_region.template.ld
         ${CMAKE_CURRENT_BINARY_DIR}/${TARGET}/pico_flash_region.ld

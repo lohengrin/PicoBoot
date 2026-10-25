@@ -206,6 +206,14 @@ USB stacks: the device stack (MSC+CDC, native port) and the PIO-USB host
 (HID) share one TinyUSB build, hence one `tusb_config.h`; the composite has
 a device-only and a `_hid` variant built against the matching config.
 
+Presto (`picoboot_lvgl_presto`): the 480x480 ST7701 is scanned out by PIO + DMA from a 225 KB
+8-bit palette framebuffer; its interrupts run on core 1, which only executes RAM code (a flash write by
+core 0 -- Bluetooth bonding, flashing an application -- would otherwise stall it and blank the panel; the
+build is `-O2` so the SDK's `static inline` helpers are not left out of line in flash). Bluetooth LE HID
+(`BtManager`, BLE only, no Wi-Fi) feeds an LVGL keypad / pointer (`lvgl_input`) next to the QwSTPad; the
+pairing panel is `BtPanel`. BTstack's bonding keys live in the last 8 KB of the 1 MiB reserve, outside the
+application partition, so flashing an application never wipes them.
+
 USB mass-storage throughput (`usb_bridge.cpp`): the card is clocked at 15 MHz on the
 Pi Zero (`board.h`) and TinyUSB's MSC buffer is 16 KB, but the big win is overlapping
 the card with the USB wire, which otherwise run one after the other. *Read-ahead*:

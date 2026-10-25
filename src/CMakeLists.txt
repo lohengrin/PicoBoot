@@ -109,3 +109,22 @@ if(TARGET pico_toolset_lvgl_display)
         pico_toolset_lvgl_display
     )
 endif()
+
+# --- bluetooth (Presto): BLE HID host manager + the LVGL input devices and pairing panel that use
+# it. INTERFACE library with sources, like the toolset's own Bluetooth components: the SDK's
+# CYW43/BTstack targets contribute INTERFACE sources that must compile once, in the executable.
+if(PICOBOOT_BOARD STREQUAL "presto")
+    add_library(picoboot_bluetooth INTERFACE)
+    target_sources(picoboot_bluetooth INTERFACE
+        ${CMAKE_CURRENT_LIST_DIR}/bluetooth/bt_manager.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/ui/lvgl/lvgl_input.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/ui/lvgl/bt_panel.cpp
+    )
+    target_include_directories(picoboot_bluetooth INTERFACE ${PROJECT_SOURCE_DIR}/include)
+    target_link_libraries(picoboot_bluetooth INTERFACE
+        pico_stdlib
+        pico_toolset_bluetooth_hid
+        pico_toolset_qwstpad
+        pico_toolset_lvgl_display
+    )
+endif()
