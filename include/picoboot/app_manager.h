@@ -39,6 +39,14 @@ public:
     // FatFs caches FAT state. Returns whether a card is mounted.
     bool refresh();
 
+    // The two halves of refresh(), for startup: mount() initialises the card and mounts the
+    // volume (all the USB drive needs), scan() then reads picoboot.cfg and lists the folder.
+    // Starting USB between them makes the drive available without waiting for the scan.
+    bool mount();
+    void scan();
+    // True once a scan() (or refresh()) has run, so a UI need not repeat the startup scan.
+    [[nodiscard]] bool scanned() const { return m_scanned; }
+
     // Folder navigation (one level per view): enter the folder at catalog index /
     // go to the parent, then re-list. Return false when not possible (not a folder,
     // already at the root). up() reports the folder left, to reselect it.
@@ -79,11 +87,15 @@ private:
     AppCatalog m_catalog;
     unsigned m_screenshot_counter = 0; // last number handed out
     PicoBootConfig m_config;
+    bool m_scanned = false;
     bool m_dir_from_config = false; // the first listing starts in last_run's folder
     std::string m_error_long;
     std::string m_error_short;
 
     LoadResult fail(LoadResult result, std::string short_text, std::string long_text);
+    // After a folder change: re-list only while the USB host has not written to the card (the
+    // FatFs caches are still valid), else a full remount.
+    void relist();
 };
 
 } // namespace picoboot

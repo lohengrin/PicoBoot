@@ -9,6 +9,7 @@
 #include "picoboot/fastboot.h"
 #include "picoboot/memory_probe.h"
 #include "picoboot/flash_layout.h"
+#include "picoboot/trace.h"
 #include "picoboot/usb_bridge.h"
 #include "picoboot/vtor_jump.h"
 
@@ -66,11 +67,13 @@ int main() {
 
     static pico_toolset::SdCard sd_card;
     static picoboot::AppManager manager(sd_card, picoboot::board::sd_config());
-    manager.refresh();
+    manager.mount(); // the drive needs only the card; the catalog scan comes after USB is up
     picoboot::usb_bridge_set_bus_hook(restore_sd_bus); // before the host can ask for the capacity
     picoboot::usb_bridge_init(sd_card);
     pico_toolset::LvglDisplayAdapter::s_idle_hook = release_bus_and_pump_usb;
 
+    release_bus_and_pump_usb();
+    manager.scan();
     release_bus_and_pump_usb();
     g_lcd.init(pico_toolset::configs::st7789::kElecrowCrowPanelPicoHmi28);
     g_lcd.set_backlight(255);
@@ -98,6 +101,9 @@ int main() {
 
     static picoboot::LvglUi ui(manager, adapter, /*allow_auto_boot=*/!from_app_request);
     static picoboot::SerialUi serial_ui(manager, /*allow_auto_boot=*/false);
+#ifdef PICOBOOT_USB_STATS
+    serial_ui.add_command("stats", [] { picoboot::trace::print(); });
+#endif
     while (true) {
         ui.poll();
         serial_ui.poll();

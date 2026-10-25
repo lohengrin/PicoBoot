@@ -1,4 +1,5 @@
 #include "picoboot/app_manager.h"
+#include "picoboot/trace.h"
 
 #include "picoboot/fastboot.h"
 #include "picoboot/flash_layout.h"
@@ -16,9 +17,15 @@
 
 namespace picoboot {
 
-bool AppManager::refresh() {
+bool AppManager::mount() {
+    trace::Scope timed("sd_mount");
     m_sd_card.init(m_sd_config);
     storage_note_remount(); // clears a failed state; the USB drive re-reads the medium
+    return m_sd_card.is_mounted();
+}
+
+void AppManager::scan() {
+    trace::Scope timed("catalog_scan");
     if (m_sd_card.is_mounted()) {
         m_config.load();
         if (!m_dir_from_config) {
@@ -31,7 +38,23 @@ bool AppManager::refresh() {
         }
     }
     m_catalog.refresh(m_sd_card);
+    m_scanned = true;
+}
+
+bool AppManager::refresh() {
+    mount();
+    scan();
     return m_sd_card.is_mounted();
+}
+
+void AppManager::relist() {
+    // The mount stays valid while the host has not written: skip the card re-initialisation.
+    if (storage_host_dirty() || !card_present()) {
+        refresh();
+        return;
+    }
+    trace::Scope timed("catalog_scan");
+    m_catalog.refresh(m_sd_card);
 }
 
 std::string AppManager::next_screenshot_path() {
@@ -51,18 +74,18 @@ std::string AppManager::next_screenshot_path() {
 
 bool AppManager::browse_into(size_t index) {
     if (!m_catalog.enter(index)) return false;
-    refresh(); // remounts: the host may have changed the volume over USB
+    relist();
     return true;
 }
 
 void AppManager::browse_root() {
     m_catalog.set_directory({});
-    refresh();
+    relist();
 }
 
 bool AppManager::browse_up(std::string* left) {
     if (!m_catalog.up(left)) return false;
-    refresh();
+    relist();
     return true;
 }
 

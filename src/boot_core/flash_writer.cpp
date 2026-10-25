@@ -2,6 +2,7 @@
 
 #include "picoboot/critical_section.h"
 #include "picoboot/flash_layout.h"
+#include "picoboot/trace.h"
 
 #include "hardware/flash.h"
 #include "pico/flash.h"
@@ -61,6 +62,7 @@ void do_program_block(void* raw_params) {
 }
 
 bool run_block(BlockParams& params) {
+    trace::Scope timed("flash_block"); // interrupts are off for erase + program: USB cannot be serviced
     if (multicore_lockout_ready()) {
         g_failure_code = flash_safe_execute(do_program_block, &params, 5000);
         return g_failure_code == PICO_OK;

@@ -11,6 +11,7 @@
 #include "picoboot/fastboot.h"
 #include "picoboot/memory_probe.h"
 #include "picoboot/flash_layout.h"
+#include "picoboot/trace.h"
 #include "picoboot/usb_bridge.h"
 #include "picoboot/vtor_jump.h"
 
@@ -81,11 +82,13 @@ int main() {
 
     static pico_toolset::SdCard sd_card;
     static picoboot::AppManager manager(sd_card, picoboot::board::sd_config());
-    manager.refresh();
+    manager.mount(); // the drive needs only the card; the catalog scan comes after USB is up
     picoboot::usb_bridge_init(sd_card);
     // Keep the USB device serviced even while a long redraw/flash is going on.
     pico_toolset::LvglDisplayAdapter::s_idle_hook = picoboot::usb_bridge_task;
 
+    picoboot::usb_bridge_task();
+    manager.scan();
     picoboot::usb_bridge_task();
     g_lcd.init(lcd_config());
     picoboot::usb_bridge_task();
@@ -122,6 +125,9 @@ int main() {
     // auto-boot countdown); the serial menu stays fully usable over CDC.
     static picoboot::LvglUi ui(manager, adapter, /*allow_auto_boot=*/!from_app_request);
     static picoboot::SerialUi serial_ui(manager, /*allow_auto_boot=*/false);
+#ifdef PICOBOOT_USB_STATS
+    serial_ui.add_command("stats", [] { picoboot::trace::print(); });
+#endif
     while (true) {
         if (hid.consume_key_press(0x46)) ui.request_screenshot(); // PrintScreen
         ui.poll();

@@ -1,12 +1,14 @@
 #include "picoboot/usb_bridge.h"
 
 #include "picoboot/storage_state.h"
+#include "picoboot/trace.h"
 
 #include "pico_toolset/usb_composite.h"
 
 #include "ff.h"
 #include "diskio.h"
 
+#include "hardware/irq.h"
 #include "pico/stdlib.h"
 
 #include <cstdio>
@@ -99,6 +101,7 @@ uint64_t g_tud_us = 0; // time inside the USB stack itself (includes the SD call
 uint32_t g_ra_hits = 0, g_ra_fetches = 0, g_wb_queued = 0, g_wb_commits = 0;
 uint64_t g_ra_sd_us = 0, g_wb_sd_us = 0;
 constexpr uint32_t kBurstIdleUs = 500'000;
+uint64_t g_last_exit_us = 0; // end of the previous usb_bridge_task()
 
 inline uint64_t stat_now() { return time_us_64(); }
 
@@ -196,6 +199,13 @@ void note_io(bool ok) {
     }
 }
 
+// Is a card initialised and answering? Deliberately not "FatFs mounted it": the host gets the raw
+// sectors, so a card with a filesystem FatFs cannot read (blank, GPT, ext4, ...) is still shown
+// -- and can be formatted from the host -- and the drive is ready as soon as the card is up.
+bool card_ready() {
+    return (disk_status(0) & (STA_NOINIT | STA_NODISK)) == 0 && !storage_failed();
+}
+
 // Asks the card for its capacity (a command it cannot answer when removed).
 bool read_capacity(uint32_t& blocks) {
     prepare_bus();
@@ -208,7 +218,7 @@ bool read_capacity(uint32_t& blocks) {
 // "Is the medium there?" -- the mounted flag alone never notices a removed
 // card. Probed at most once a second (hosts poll TEST UNIT READY constantly).
 bool ready(void*) {
-    bool result = g_sd && g_sd->is_mounted() && !storage_failed();
+    bool result = card_ready();
 
     const uint32_t now = to_ms_since_boot(get_absolute_time());
     if (result && now - g_last_probe_ms >= kProbeIntervalMs) {
@@ -227,6 +237,13 @@ bool ready(void*) {
         }
     }
     g_last_ready = result;
+    if (result) {
+        static bool first = true;
+        if (first) {
+            first = false;
+            trace::mark("msc_ready (first TEST UNIT READY ok)");
+        }
+    }
     return result;
 }
 
@@ -244,6 +261,11 @@ bool wb_flush();
 
 bool read(void*, uint32_t lba, uint8_t* buf, uint32_t count) {
     wb_flush(); // a read must see every write already acknowledged (a failure is reported by the next write/sync)
+    static bool first_read = true;
+    if (first_read) {
+        first_read = false;
+        trace::mark("first READ(10)");
+    }
     const uint32_t now_ms = to_ms_since_boot(get_absolute_time());
     const uint64_t t0 = stat_now();
 
@@ -282,7 +304,7 @@ void ra_prefetch() {
     const uint32_t lba = g_ra_want_lba;
     const uint32_t count = g_ra_want_count;
     g_ra_want_count = 0;
-    if (!g_sd || !g_sd->is_mounted() || storage_failed() || storage_write_locked()) return;
+    if (!card_ready() || storage_write_locked()) return;
 
     prepare_bus();
     const uint64_t t0 = stat_now();
@@ -318,6 +340,7 @@ bool write(void*, uint32_t lba, const uint8_t* buf, uint32_t count) {
         return false;
     }
     ra_invalidate();
+    storage_set_host_dirty(true); // FatFs' cached sectors may now be stale: the next navigation remounts
 
     const uint64_t t0 = stat_now();
     if (count > kWbSectors) { // larger than the queue (not expected): write through
@@ -365,11 +388,47 @@ void usb_bridge_init(const pico_toolset::SdCard& sd_card) {
     cfg.msc_vendor = "PicoBoot";
     cfg.msc_product = "SD card";
     pico_toolset::usb_composite_init(cfg);
+    trace::mark("usb_bridge_init");
 }
 
 void usb_bridge_set_bus_hook(void (*hook)()) { g_bus_hook = hook; }
 
-void usb_bridge_task() {
+void usb_bridge_task(bool from_irq); // the body of usb_bridge_task(); `from_irq` skips the statistics
+
+namespace {
+repeating_timer_t g_pump_timer;
+volatile bool g_pump_active = false;
+volatile bool g_pump_busy = false;
+bool pump_callback(repeating_timer_t*) {
+    if (g_pump_busy) return true; // the previous tick is still running
+    g_pump_busy = true;
+    usb_bridge_task(/*from_irq=*/true);
+    g_pump_busy = false;
+    return true;
+}
+} // namespace
+
+void usb_bridge_irq_pump_start() {
+    if (g_pump_active) return;
+    // The USB interrupt must be able to preempt the pump's card transfers, which are long.
+    irq_set_priority(USBCTRL_IRQ, 0x40);
+    g_pump_active = true;
+    add_repeating_timer_ms(-1, pump_callback, nullptr, &g_pump_timer); // 1 ms after each run ended
+}
+
+void usb_bridge_irq_pump_stop() {
+    if (!g_pump_active) return;
+    cancel_repeating_timer(&g_pump_timer);
+    while (g_pump_busy) tight_loop_contents();
+    g_pump_active = false;
+#ifdef PICOBOOT_USB_STATS
+    g_last_exit_us = time_us_64(); // the stalled stretch was serviced: not a main-loop gap
+#endif
+}
+
+void usb_bridge_task() { usb_bridge_task(false); }
+
+void usb_bridge_task(bool from_irq) {
     // A remount happened (Refresh). Tell the host the medium may have changed
     // only if it really might have -- the card was gone or stopped answering, it
     // appeared or vanished, or its capacity differs -- so pressing Refresh
@@ -381,7 +440,7 @@ void usb_bridge_task() {
         g_consecutive_failures = 0;
         g_last_probe_ms = 0;
 
-        const bool now_ready = g_sd && g_sd->is_mounted();
+        const bool now_ready = card_ready();
         uint32_t blocks = 0;
         const bool have_size = now_ready && read_capacity(blocks);
         // A host eject hides the medium until told otherwise: Refresh presents it again.
@@ -392,12 +451,25 @@ void usb_bridge_task() {
         if (have_size) g_known_blocks = blocks;
         if (changed) pico_toolset::usb_composite_media_changed();
     }
+#ifdef PICOBOOT_USB_STATS
+    // Time spent *outside* this function since the last call: what kept the loop away from USB.
+    if (!from_irq && g_last_exit_us != 0) trace::gap(time_us_64() - g_last_exit_us);
+    static bool cdc_seen = false;
+    if (!from_irq && !cdc_seen && pico_toolset::usb_composite_cdc_connected()) {
+        cdc_seen = true;
+        trace::mark("cdc_open (host opened the serial port)");
+    }
+#endif
     const uint64_t t0 = stat_now();
     pico_toolset::usb_composite_task();
     stat_task(t0);
     wb_flush(); // a failure is held in g_wb_error until the host's next write/sync
     ra_prefetch();
+    if (from_irq) return; // no printing or bookkeeping from interrupt context
     stat_report_if_idle();
+#ifdef PICOBOOT_USB_STATS
+    g_last_exit_us = time_us_64();
+#endif
 }
 
 } // namespace picoboot

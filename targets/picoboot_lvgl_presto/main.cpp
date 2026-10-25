@@ -7,6 +7,7 @@
 #include "picoboot/lvgl_ui.h"
 #include "picoboot/memory_probe.h"
 #include "picoboot/serial_ui.h"
+#include "picoboot/trace.h"
 #include "picoboot/usb_bridge.h"
 
 #include "pico_toolset/ft6236.h"
@@ -27,6 +28,7 @@ namespace {
 constexpr int kWidth = 480;
 constexpr int kHeight = 480;
 constexpr size_t kDrawRows = 24;
+constexpr uint32_t kBluetoothStartMs = 3000; // see the main loop
 
 // 8-bit palette scanout buffer (RGB332 colour table: 225 KB instead of 450 KB for RGB565).
 // It must live in SRAM: PSRAM cannot feed the scanout DMA at pixel rate.
@@ -102,18 +104,25 @@ int main() {
     picoboot::stack_paint(); // for the 'info' command's stack headroom
     stdio_init_all();
 
-    // Everything that touches flash/XIP state runs before core 1 starts.
+    // USB first: the drive needs only the card, so mount it, start USB and let the host enumerate
+    // while the catalog scan, the LCD and (3 s in) the radio come up behind it.
     static pico_toolset::SdCard sd_card;
     static picoboot::AppManager manager(sd_card, picoboot::board::sd_config());
-    manager.refresh();
+    manager.mount();
+    picoboot::trace::mark("sd_mounted");
     picoboot::usb_bridge_init(sd_card);
     pico_toolset::LvglDisplayAdapter::s_idle_hook = pump_usb;
-    picoboot::usb_bridge_task();
+    pump_usb();
+    manager.scan();
+    picoboot::trace::mark("catalog_scanned");
+    pump_usb();
 
+    // Core 1 initialises the panel (~0.4 s) and then only serves the scanout interrupts: core 0
+    // does not wait for it. Flash writes by core 0 (Bluetooth bonding, loading an app) must not
+    // happen before it has finished, since its init code still runs from flash.
     multicore_launch_core1(core1_main);
-    const bool lcd_ok = multicore_fifo_pop_blocking() == 1;
-    printf("PicoBoot Presto: LCD %s\n", lcd_ok ? "ok" : "FAILED");
-    picoboot::usb_bridge_task();
+    bool lcd_pending = true;
+    bool lcd_ok = false;
 
     static pico_toolset::Ft6236 touch;
     touch.init(pico_toolset::configs::ft6236::kPimoroniPrestoFullRes);
@@ -146,14 +155,51 @@ int main() {
     serial_ui.add_command("bt", cmd_bt);
     serial_ui.add_command("btpair", cmd_bt_pair);
     serial_ui.add_command("btforget", cmd_bt_forget);
+#ifdef PICOBOOT_USB_STATS
+    serial_ui.add_command("stats", [] { picoboot::trace::print(); });
+#endif
 
-    ui.poll(); // builds the screen and renders the first frame before the radio comes up
-    bt.init(); // ~1 s: loads the CYW43 firmware and the bonded devices
+    ui.poll(); // builds the screen
+    picoboot::trace::mark("ui_built");
+
+    bool bt_started = false;
     while (true) {
+        if (lcd_pending && multicore_fifo_rvalid()) {
+            lcd_pending = false;
+            lcd_ok = multicore_fifo_pop_blocking() == 1;
+            printf("PicoBoot Presto: LCD %s\n", lcd_ok ? "ok" : "FAILED");
+            picoboot::trace::mark(lcd_ok ? "lcd_ready" : "lcd_FAILED");
+        }
+        // The radio costs ~1 s with the USB stack unserviced (it loads the CYW43 firmware), so it
+        // starts a fixed time after boot, once the host has had time to enumerate and read the
+        // drive's first sectors -- and only after the panel init no longer needs flash.
+        if (!bt_started && !lcd_pending && to_ms_since_boot(get_absolute_time()) >= kBluetoothStartMs) {
+            bt_started = true;
+            picoboot::trace::mark("bt_init_start");
+            // ~1 s of radio bring-up: the USB stack is serviced from a timer interrupt meanwhile.
+            // Nothing may touch the card or print (TinyUSB) from this thread until it is stopped.
+            picoboot::usb_bridge_irq_pump_start();
+            bool bt_ok;
+            {
+                picoboot::trace::Scope timed("bt_init");
+                bt_ok = bt.init();
+            }
+            picoboot::usb_bridge_irq_pump_stop();
+            picoboot::trace::mark("bt_init_done");
+            pico_toolset::BtHidDevice bonded[pico_toolset::BluetoothHid::kMaxBonded];
+            printf("Bluetooth %s, %u bonded device(s)\n", bt_ok ? "ready" : "FAILED",
+                   static_cast<unsigned>(bt.bonded(bonded, pico_toolset::BluetoothHid::kMaxBonded)));
+        }
         if (bt.ready() && bt.hid().consume_key_press(0x46)) ui.request_screenshot(); // PrintScreen
         ui.poll();
-        bt_panel.poll();
-        serial_ui.poll();
+        {
+            picoboot::trace::Scope timed("bt_panel");
+            bt_panel.poll();
+        }
+        {
+            picoboot::trace::Scope timed("serial_ui");
+            serial_ui.poll();
+        }
         pump_usb();
     }
 }

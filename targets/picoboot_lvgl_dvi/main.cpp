@@ -18,6 +18,7 @@
 #include "picoboot/fastboot.h"
 #include "picoboot/memory_probe.h"
 #include "picoboot/flash_layout.h"
+#include "picoboot/trace.h"
 #include "picoboot/usb_bridge.h"
 #include "picoboot/vtor_jump.h"
 
@@ -201,9 +202,12 @@ int main() {
 
     static pico_toolset::SdCard sd_card;
     static picoboot::AppManager manager(sd_card, picoboot::board::sd_config());
-    manager.refresh();
+    manager.mount(); // the drive needs only the card; the catalog scan comes after USB is up
     picoboot::usb_bridge_init(sd_card);
     pico_toolset::LvglDisplayAdapter::s_idle_hook = pump_usb;
+    pump_usb();
+    manager.scan();
+    pump_usb();
 
     g_dvi.timing = &dvi_timing_640x480p_60hz;
     g_dvi.ser_cfg = dvi_pins();
@@ -240,6 +244,9 @@ int main() {
 
     static picoboot::LvglUi ui(manager, adapter, /*allow_auto_boot=*/!from_app_request);
     static picoboot::SerialUi serial_ui(manager, /*allow_auto_boot=*/false);
+#ifdef PICOBOOT_USB_STATS
+    serial_ui.add_command("stats", [] { picoboot::trace::print(); });
+#endif
 #if !PICO_RP2350
     serial_ui.add_command("buttons", scan_buttons);
 #endif

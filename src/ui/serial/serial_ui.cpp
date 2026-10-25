@@ -178,7 +178,7 @@ void SerialUi::update_countdown() {
 void SerialUi::poll() {
     if (!m_started) {
         m_started = true;
-        m_manager.refresh();
+        if (!m_manager.scanned()) m_manager.refresh();
         show_menu();
 
         const PicoBootConfig& cfg = m_manager.config();

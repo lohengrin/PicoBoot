@@ -10,26 +10,16 @@
 namespace picoboot {
 
 bool BtManager::init() {
-    if (cyw43_arch_init() != 0) {
-        printf("Bluetooth: radio init failed\n");
-        return false;
-    }
-    if (!m_bt.init(pico_toolset::BluetoothConfig{.name = "PicoBoot"})) {
-        printf("Bluetooth: controller did not start\n");
-        return false;
-    }
+    // No printing in here: the caller may be servicing USB from an interrupt meanwhile.
+    if (cyw43_arch_init() != 0) return false;
+    if (!m_bt.init(pico_toolset::BluetoothConfig{.name = "PicoBoot"})) return false;
     pico_toolset::BluetoothHidConfig config;
     config.callback = on_event_thunk;
     config.user = this;
     config.enable_classic = false; // BLE only: keyboards, mice and gamepads that speak HID over GATT
-    if (!m_hid.init(config)) {
-        printf("Bluetooth: HID host failed\n");
-        return false;
-    }
+    if (!m_hid.init(config)) return false;
     m_state.ready = true;
     m_ready = true;
-    pico_toolset::BtHidDevice devices[pico_toolset::BluetoothHid::kMaxBonded];
-    printf("Bluetooth ready: %u bonded device(s)\n", static_cast<unsigned>(bonded(devices, pico_toolset::BluetoothHid::kMaxBonded)));
     return true;
 }
 

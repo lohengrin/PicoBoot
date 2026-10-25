@@ -21,4 +21,12 @@ void usb_bridge_set_bus_hook(void (*hook)());
 // Pump the USB stack (also pumped by stdio input waits).
 void usb_bridge_task();
 
+// Services the USB stack (and the drive) from a 1 ms timer interrupt until the matching _stop(),
+// for the rare section that blocks the main loop for a long time -- the Bluetooth radio bring-up
+// takes ~1 s, during which a host reading the drive would otherwise stall. Only valid while the
+// main thread neither touches the card nor calls TinyUSB (stdio printing included) in between.
+// Not re-entrant: do not nest, and do not call usb_bridge_task() from the main thread inside.
+void usb_bridge_irq_pump_start();
+void usb_bridge_irq_pump_stop();
+
 } // namespace picoboot

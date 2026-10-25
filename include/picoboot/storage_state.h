@@ -19,6 +19,12 @@ void storage_set_write_lock(bool locked);
 void storage_set_failed(bool failed);
 [[nodiscard]] bool storage_failed();
 
+// True once the USB host has written to the card since the last mount. FatFs caches directory and
+// FAT sectors, so only then must the bootloader remount (reset the card, ~50-100 ms) to see the
+// host's changes; plain folder navigation can reuse the mount while nothing was written.
+void storage_set_host_dirty(bool dirty);
+[[nodiscard]] bool storage_host_dirty();
+
 // Called after every mount attempt; the USB drive uses the change to forget
 // cached capacity and to tell the host the medium may have changed.
 void storage_note_remount();

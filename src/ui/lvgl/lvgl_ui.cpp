@@ -2,6 +2,7 @@
 
 #include "picoboot/fastboot.h"
 #include "picoboot/storage_state.h"
+#include "picoboot/trace.h"
 #include "picoboot/screenshot.h"
 
 #include "pico/stdlib.h"
@@ -149,6 +150,7 @@ void LvglUi::build() {
 }
 
 void LvglUi::populate() {
+    trace::Scope timed("populate");
     lv_obj_clean(m_list);
     const bool present = m_manager.card_present();
     if (present) lv_obj_remove_flag(m_list, LV_OBJ_FLAG_HIDDEN); else lv_obj_add_flag(m_list, LV_OBJ_FLAG_HIDDEN);
@@ -307,13 +309,16 @@ void LvglUi::navigate(bool up, size_t index) {
 void LvglUi::poll() {
     if (!m_built) {
         build();
-        m_manager.refresh();
+        if (!m_manager.scanned()) m_manager.refresh(); // normally the target already did the startup scan
         populate();
         start_countdown();
     }
 
     update_countdown();
-    m_adapter.tick();
+    {
+        trace::Scope timed("lvgl_tick(+usb)"); // the idle hook pumps USB between tiles
+        m_adapter.tick();
+    }
 
     // Actions run here, never inside LVGL event callbacks: loading calls
     // back into adapter.tick() for the progress bar, which must not nest

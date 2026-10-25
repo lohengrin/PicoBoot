@@ -49,6 +49,13 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 pico_sdk_init()
 
+# Statistics for tuning the USB drive (see include/picoboot/trace.h): per-burst throughput over CDC
+# and the 'stats' serial command (boot timeline, main-loop latency). Every layer uses trace.h.
+option(PICOBOOT_USB_STATS "USB mass-storage statistics over CDC, plus the 'stats' command (boot timeline, main-loop latency)" OFF)
+if(PICOBOOT_USB_STATS)
+    add_compile_definitions(PICOBOOT_USB_STATS)
+endif()
+
 # Presto has a 1 MiB reserve, so it is built for speed (-O2) rather than size: the other boards
 # need -Os to fit their 512 KiB. Besides being faster, -O2 inlines the SDK's `static inline`
 # helpers that -Os leaves out of line in flash, which must never happen in code that core 1 runs

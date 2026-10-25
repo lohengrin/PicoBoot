@@ -25,7 +25,7 @@ public:
     // Board/target-specific extra command (e.g. a hardware diagnostic): typed
     // by name at the prompt, runs `handler` (which may block), then redraws.
     // At most kMaxCommands; names are compared case-insensitively.
-    static constexpr size_t kMaxCommands = 4;
+    static constexpr size_t kMaxCommands = 8;
     void add_command(const char* name, void (*handler)());
 
 private:

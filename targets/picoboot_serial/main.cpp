@@ -6,6 +6,7 @@
 #include "picoboot/fastboot.h"
 #include "picoboot/memory_probe.h"
 #include "picoboot/flash_layout.h"
+#include "picoboot/trace.h"
 #include "picoboot/usb_bridge.h"
 #include "picoboot/vtor_jump.h"
 
@@ -30,8 +31,10 @@ int main() {
 
     static pico_toolset::SdCard sd_card;
     static picoboot::AppManager manager(sd_card, picoboot::board::sd_config());
-    manager.refresh();
+    manager.mount(); // the drive needs only the card; the catalog scan comes after USB is up
     picoboot::usb_bridge_init(sd_card);
+    for (absolute_time_t end = make_timeout_time_ms(100); !time_reached(end);) picoboot::usb_bridge_task();
+    manager.scan();
 
     // Let the host enumerate and open the CDC port before the first menu.
     for (absolute_time_t end = make_timeout_time_ms(2000); !time_reached(end);) {
@@ -39,6 +42,9 @@ int main() {
     }
 
     static picoboot::SerialUi ui(manager, /*allow_auto_boot=*/!from_app_request);
+#ifdef PICOBOOT_USB_STATS
+    ui.add_command("stats", [] { picoboot::trace::print(); });
+#endif
     while (true) {
         ui.poll();
         picoboot::usb_bridge_task();
