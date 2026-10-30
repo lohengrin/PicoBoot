@@ -91,6 +91,12 @@ void BtManager::on_event(const pico_toolset::BtHidEvent& event) {
             s.fail_status = event.status;
             s.fail_reason = event.reason;
             break;
+        case BtHidEventType::Renamed:
+            // The name of a connected device was read (it was bonded without one). The revision
+            // bump below makes the panel rebuild its list; the status line follows too if it is
+            // about the device just paired.
+            if (s.phase != Phase::kIdle || s.result == Result::kConnected) remember_name();
+            break;
         case BtHidEventType::Disconnected:
         case BtHidEventType::Forgotten:
             break;
