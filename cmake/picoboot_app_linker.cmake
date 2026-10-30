@@ -22,7 +22,7 @@ set(PICOBOOT_APP_LINKER_CMAKE_DIR ${CMAKE_CURRENT_LIST_DIR})
 function(picoboot_set_app_flash_region TARGET TOTAL_FLASH_SIZE)
     include(${PICOBOOT_APP_LINKER_CMAKE_DIR}/picoboot_flash_layout.cmake)
 
-    math(EXPR PICOBOOT_APP_FLASH_LENGTH "${TOTAL_FLASH_SIZE} - ${PICOBOOT_BOOT_RESERVE_SIZE}")
+    math(EXPR PICOBOOT_APP_FLASH_LENGTH "${TOTAL_FLASH_SIZE} - ${PICOBOOT_BOOT_RESERVE_SIZE} - ${PICOBOOT_FLASH_TAIL_RESERVE_SIZE}")
 
     configure_file(
         ${PICOBOOT_APP_LINKER_CMAKE_DIR}/../testapps/linker/picoboot_app_flash_region.template.ld

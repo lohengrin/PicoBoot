@@ -19,6 +19,13 @@ set(PICOBOOT_BOOT_RESERVE_SIZE 0x80000) # 512 KiB
 # linked against this value like any other (PICOBOOT_TEST_BOARD for the test apps).
 if("${PICOBOOT_BOARD}" STREQUAL "presto" OR "${PICOBOOT_TEST_BOARD}" STREQUAL "presto")
     set(PICOBOOT_BOOT_RESERVE_SIZE 0x100000) # 1 MiB
+    # The toolset's shared Bluetooth bond store sits at its default place, the last sectors of
+    # flash (pico_toolset bluetooth-store.md), so a device paired in any toolset application works
+    # here. Keep that region out of the application partition so flashing an app never erases it.
+    set(PICOBOOT_FLASH_TAIL_RESERVE_SIZE 0x4000) # 16 KiB (store: 3 sectors on RP2350)
+endif()
+if(NOT DEFINED PICOBOOT_FLASH_TAIL_RESERVE_SIZE)
+    set(PICOBOOT_FLASH_TAIL_RESERVE_SIZE 0)
 endif()
 
 math(EXPR PICOBOOT_APP_FLASH_ORIGIN_DEC "${PICOBOOT_FLASH_XIP_BASE} + ${PICOBOOT_BOOT_RESERVE_SIZE}")
