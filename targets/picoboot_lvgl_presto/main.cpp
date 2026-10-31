@@ -139,7 +139,7 @@ void cmd_bt_forget() {
 // the main loop was doing (interrupt context, same stack). Overflowing it smashed a return address and
 // crashed the board (hard fault to address 0). So the main code runs on a larger stack in RAM:
 // main() points MSP at it and enters app_main(), which never returns. Interrupts use it too.
-constexpr size_t kMainStackBytes = 10 * 1024;
+constexpr size_t kMainStackBytes = 8 * 1024; // measured peak ~4.5 KB (info), the linker stack was 4 KB
 alignas(8) uint8_t g_main_stack[kMainStackBytes];
 
 extern "C" int app_main();

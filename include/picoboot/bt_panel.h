@@ -33,7 +33,6 @@ private:
     pico_toolset::BluetoothPageLvgl m_page;
     bool m_open_requested = false;
 
-    lv_obj_t* m_overlay = nullptr;
     lv_group_t* m_previous_group = nullptr;
     lv_indev_t* m_keypad = nullptr;
     uint32_t m_last_update_ms = 0;
