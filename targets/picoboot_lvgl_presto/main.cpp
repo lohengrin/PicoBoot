@@ -22,6 +22,7 @@
 #include "pico/stdlib.h"
 
 #include <cstdio>
+#include "pico_toolset/fault_handler.h"
 
 namespace {
 
@@ -169,6 +170,7 @@ int main() {
             lcd_pending = false;
             lcd_ok = multicore_fifo_pop_blocking() == 1;
             printf("PicoBoot Presto: LCD %s\n", lcd_ok ? "ok" : "FAILED");
+            pico_toolset::report_pending_hard_fault("PicoBoot"); // a crash resets the board and is reported here
             picoboot::trace::mark(lcd_ok ? "lcd_ready" : "lcd_FAILED");
         }
         // The radio costs ~1 s with the USB stack unserviced (it loads the CYW43 firmware), so it

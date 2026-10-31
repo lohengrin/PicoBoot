@@ -15,6 +15,7 @@ target_link_libraries(picoboot_lvgl_presto PRIVATE
     picoboot_ui_lvgl
     picoboot_ui_serial
     pico_toolset_st7701
+    pico_toolset_fault_handler
     pico_toolset_ft6236
     picoboot_bluetooth # BLE keyboard / mouse / gamepad, QwSTPad, pairing panel
 )

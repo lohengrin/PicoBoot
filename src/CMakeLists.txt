@@ -116,6 +116,10 @@ if(PICOBOOT_BOARD STREQUAL "presto")
         ${CMAKE_CURRENT_LIST_DIR}/ui/lvgl/bt_panel.cpp
     )
     target_include_directories(picoboot_bluetooth INTERFACE ${PROJECT_SOURCE_DIR}/include)
+    if(PICOBOOT_PRESTO_A2DP)
+        target_link_libraries(picoboot_bluetooth INTERFACE pico_toolset_bluetooth_a2dp)
+        target_compile_definitions(picoboot_bluetooth INTERFACE PICOBOOT_BT_A2DP=1)
+    endif()
     target_link_libraries(picoboot_bluetooth INTERFACE
         pico_stdlib
         pico_toolset_bluetooth_hid

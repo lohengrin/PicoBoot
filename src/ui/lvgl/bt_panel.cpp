@@ -1,5 +1,7 @@
 #include "picoboot/bt_panel.h"
 
+#include "picoboot/lvgl_input.h"
+
 #include "pico/stdlib.h"
 
 namespace picoboot {
@@ -34,6 +36,7 @@ void BtPanel::open() {
 
     m_controller.open();
     m_page.create(m_overlay);
+    lvgl_input_raise_cursor(); // the overlay was created above the mouse cursor
     if (m_keypad) {
         m_previous_group = lv_indev_get_group(m_keypad);
         lv_indev_set_group(m_keypad, m_page.group());

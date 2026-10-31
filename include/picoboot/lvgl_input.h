@@ -18,4 +18,7 @@ namespace picoboot {
 // Both objects must outlive the UI.
 void lvgl_input_init(BtManager& bt, pico_toolset::QwstPad* pad, int width, int height);
 
+// Puts the mouse cursor above everything on the top layer (call after creating an overlay there).
+void lvgl_input_raise_cursor();
+
 } // namespace picoboot

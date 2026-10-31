@@ -127,12 +127,19 @@ if(PICOBOOT_BOARD STREQUAL "crowpanel_pico_hmi_28")
     add_subdirectory(${TOOLSET_ROOT}/components/st7789 ${CMAKE_BINARY_DIR}/_toolset/st7789 EXCLUDE_FROM_ALL)
 endif()
 if(PICOBOOT_BOARD STREQUAL "presto")
-    # Bluetooth LE HID host on the CYW43 radio, no Wi-Fi (no lwIP / mbedtls), no Classic.
+    # Bluetooth LE HID host on the CYW43 radio, no Wi-Fi (no lwIP / mbedtls). Classic (BR/EDR) is
+    # linked only for the A2DP headset management of the Bluetooth page (see/pair/forget a headset;
+    # PicoBoot never plays audio), HID stays BLE.
+    option(PICOBOOT_PRESTO_A2DP "Presto: manage A2DP headsets from the Bluetooth page" ON)
     set(PICO_TOOLSET_BLUETOOTH_NO_WIFI ON CACHE BOOL "" FORCE)
-    set(PICO_TOOLSET_BLUETOOTH_CLASSIC OFF CACHE BOOL "" FORCE)
+    set(PICO_TOOLSET_BLUETOOTH_CLASSIC ${PICOBOOT_PRESTO_A2DP} CACHE BOOL "" FORCE)
     add_subdirectory(${TOOLSET_ROOT}/components/bluetooth ${CMAKE_BINARY_DIR}/_toolset/bluetooth EXCLUDE_FROM_ALL)
     add_subdirectory(${TOOLSET_ROOT}/components/bluetooth_hid ${CMAKE_BINARY_DIR}/_toolset/bluetooth_hid EXCLUDE_FROM_ALL)
+    if(PICOBOOT_PRESTO_A2DP)
+        add_subdirectory(${TOOLSET_ROOT}/components/bluetooth_a2dp ${CMAKE_BINARY_DIR}/_toolset/bluetooth_a2dp EXCLUDE_FROM_ALL)
+    endif()
     add_subdirectory(${TOOLSET_ROOT}/libs/bluetooth_ui ${CMAKE_BINARY_DIR}/_toolset/bluetooth_ui EXCLUDE_FROM_ALL)
+    add_subdirectory(${TOOLSET_ROOT}/libs/fault_handler ${CMAKE_BINARY_DIR}/_toolset/fault_handler EXCLUDE_FROM_ALL)
     add_subdirectory(${TOOLSET_ROOT}/components/qwstpad ${CMAKE_BINARY_DIR}/_toolset/qwstpad EXCLUDE_FROM_ALL)
     add_subdirectory(${TOOLSET_ROOT}/components/st7701 ${CMAKE_BINARY_DIR}/_toolset/st7701 EXCLUDE_FROM_ALL)
     add_subdirectory(${TOOLSET_ROOT}/components/ft6236 ${CMAKE_BINARY_DIR}/_toolset/ft6236 EXCLUDE_FROM_ALL)

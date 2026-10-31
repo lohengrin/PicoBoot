@@ -160,4 +160,8 @@ void lvgl_input_init(BtManager& bt, pico_toolset::QwstPad* pad, int width, int h
     lv_indev_set_cursor(mouse, g.cursor);
 }
 
+void lvgl_input_raise_cursor() {
+    if (g.cursor) lv_obj_move_foreground(g.cursor);
+}
+
 } // namespace picoboot

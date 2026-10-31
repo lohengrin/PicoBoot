@@ -4,6 +4,10 @@
 #include "pico_toolset/bluetooth_devices.h"
 #include "pico_toolset/bluetooth_hid.h"
 #include "pico_toolset/bluetooth_ui_hid.h"
+#ifdef PICOBOOT_BT_A2DP
+#include "pico_toolset/bluetooth_a2dp.h"
+#include "pico_toolset/bluetooth_ui_a2dp.h"
+#endif
 
 #include <cstddef>
 #include <cstdint>
@@ -31,6 +35,11 @@ private:
     pico_toolset::Bluetooth m_bt;
     pico_toolset::BluetoothHid m_hid;
     pico_toolset::BtUiHidBackend m_backend{m_hid};
+#ifdef PICOBOOT_BT_A2DP
+    // Only to see, pair, connect and forget a headset: PicoBoot never streams audio.
+    pico_toolset::BluetoothA2dp m_a2dp;
+    pico_toolset::BtUiA2dpBackend m_a2dp_backend{m_a2dp};
+#endif
     pico_toolset::BluetoothDevices m_devices;
     bool m_ready = false;
 };
