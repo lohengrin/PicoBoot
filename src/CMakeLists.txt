@@ -119,6 +119,8 @@ if(PICOBOOT_BOARD STREQUAL "presto")
     target_link_libraries(picoboot_bluetooth INTERFACE
         pico_stdlib
         pico_toolset_bluetooth_hid
+        pico_toolset_bluetooth_ui
+        pico_toolset_bluetooth_ui_lvgl
         pico_toolset_qwstpad
         pico_toolset_lvgl_display
     )

@@ -59,35 +59,36 @@ void pump_usb() { picoboot::usb_bridge_task(); }
 // QW/ST connector: I2C0 on GPIO40 (SDA) / GPIO41 (SCL).
 constexpr uint kQwstSdaPin = 40, kQwstSclPin = 41;
 
-// Serial commands: bt (status and devices), btpair, btforget (all devices).
+// Serial commands: bt (devices and scan results), btscan (look for devices to pair), btforget (all devices).
 void cmd_bt() {
     if (!g_bt || !g_bt->ready()) {
         printf("Bluetooth is not available\n");
         return;
     }
-    static const char* const kPhase[] = {"idle", "scanning", "connecting", "passkey", "paired", "failed"};
-    const auto snap = g_bt->snapshot();
-    printf("Bluetooth: %s", kPhase[static_cast<int>(snap.phase)]);
-    if (snap.phase == picoboot::BtManager::Phase::kPasskey) printf(", type %06lu on the keyboard", static_cast<unsigned long>(snap.passkey));
+    auto& hid = g_bt->hid();
+    uint32_t code;
+    printf("Bluetooth: %s", hid.pairing() ? "scanning" : hid.connecting() ? "connecting" : "idle");
+    if (hid.pairing_passkey(&code)) printf(", type %06lu on the keyboard", static_cast<unsigned long>(code));
     printf("\n");
-    pico_toolset::BtHidDevice devices[pico_toolset::BluetoothHid::kMaxBonded];
-    const size_t count = g_bt->bonded(devices, pico_toolset::BluetoothHid::kMaxBonded);
-    for (size_t i = 0; i < count; ++i) {
-        const auto& d = devices[i];
-        printf("  %02X:%02X:%02X:%02X:%02X:%02X  %-20s %s%s%s%s\n", d.addr[0], d.addr[1], d.addr[2], d.addr[3], d.addr[4],
-               d.addr[5], d.name, d.connected ? "connected" : "bonded",
-               (d.kinds & pico_toolset::bt_hid_kind::Keyboard) ? " keyboard" : "",
-               (d.kinds & pico_toolset::bt_hid_kind::Mouse) ? " mouse" : "",
-               (d.kinds & pico_toolset::bt_hid_kind::Gamepad) ? " gamepad" : "");
+    pico_toolset::BtUiDevice devices[pico_toolset::BluetoothDevices::kMaxFound];
+    for (int found = 0; found < 2; ++found) {
+        const size_t count = found ? g_bt->devices().found(devices, pico_toolset::BluetoothDevices::kMaxFound)
+                                   : g_bt->devices().bonded(devices, pico_toolset::BluetoothDevices::kMaxDevices);
+        for (size_t i = 0; i < count; ++i) {
+            const auto& d = devices[i];
+            printf("  %02X:%02X:%02X:%02X:%02X:%02X  %-20s %-8s %s\n", d.addr[0], d.addr[1], d.addr[2], d.addr[3], d.addr[4],
+                   d.addr[5], d.name, pico_toolset::bt_ui_kind_name(d.kind),
+                   found ? "found" : pico_toolset::bt_ui_state_name(d.state));
+        }
+        if (count == 0 && !found) printf("  no paired devices\n");
     }
-    if (count == 0) printf("  no paired devices\n");
 }
-void cmd_bt_pair() {
-    if (g_bt) g_bt->start_pairing();
-    printf("Pairing mode on: put the device in pairing mode (30 s)\n");
+void cmd_bt_scan() {
+    if (g_bt) g_bt->devices().start_scan();
+    printf("Scanning (30 s): put the device in pairing mode, then pair it from the Bluetooth page\n");
 }
 void cmd_bt_forget() {
-    if (g_bt) g_bt->forget_all();
+    if (g_bt && g_bt->ready()) g_bt->hid().forget_all();
     printf("All Bluetooth devices forgotten\n");
 }
 
@@ -153,7 +154,7 @@ int main() {
     ui.add_header_button(LV_SYMBOL_BLUETOOTH, picoboot::BtPanel::request_open, &bt_panel);
     static picoboot::SerialUi serial_ui(manager, /*allow_auto_boot=*/false);
     serial_ui.add_command("bt", cmd_bt);
-    serial_ui.add_command("btpair", cmd_bt_pair);
+    serial_ui.add_command("btscan", cmd_bt_scan);
     serial_ui.add_command("btforget", cmd_bt_forget);
 #ifdef PICOBOOT_USB_STATS
     serial_ui.add_command("stats", [] { picoboot::trace::print(); });
@@ -186,9 +187,9 @@ int main() {
             }
             picoboot::usb_bridge_irq_pump_stop();
             picoboot::trace::mark("bt_init_done");
-            pico_toolset::BtHidDevice bonded[pico_toolset::BluetoothHid::kMaxBonded];
+            pico_toolset::BtUiDevice bonded[pico_toolset::BluetoothDevices::kMaxDevices];
             printf("Bluetooth %s, %u bonded device(s)\n", bt_ok ? "ready" : "FAILED",
-                   static_cast<unsigned>(bt.bonded(bonded, pico_toolset::BluetoothHid::kMaxBonded)));
+                   static_cast<unsigned>(bt.devices().bonded(bonded, pico_toolset::BluetoothDevices::kMaxDevices)));
         }
         if (bt.ready() && bt.hid().consume_key_press(0x46)) ui.request_screenshot(); // PrintScreen
         ui.poll();
