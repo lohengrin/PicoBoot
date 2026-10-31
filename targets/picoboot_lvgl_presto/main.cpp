@@ -23,6 +23,7 @@
 
 #include <cstdio>
 #include "pico_toolset/fault_handler.h"
+#include "hardware/structs/powman.h"
 
 namespace {
 
@@ -37,6 +38,8 @@ alignas(4) uint8_t g_framebuf[kWidth * kHeight];
 alignas(64) uint16_t g_draw_buffer[kWidth * kDrawRows];
 
 pico_toolset::St7701 g_lcd;
+pico_toolset::FaultInfo g_fault{};
+bool g_fault_seen = false;
 picoboot::BtManager* g_bt = nullptr; // for the serial commands (plain function pointers)
 
 // The panel's PIO/DMA interrupts are served by the core that calls init(): core 1, so
@@ -59,6 +62,42 @@ void pump_usb() { picoboot::usb_bridge_task(); }
 
 // QW/ST connector: I2C0 on GPIO40 (SDA) / GPIO41 (SCL).
 constexpr uint kQwstSdaPin = 40, kQwstSclPin = 41;
+
+// The hard fault that caused the last reset, kept for the "fault" command (the serial port is usually
+// reopened after the reset, too late for the boot message).
+uint32_t g_reset_reason = 0; // POWMAN CHIP_RESET at boot: why the chip last reset
+
+void print_reset_reason() {
+    struct Bit { uint32_t mask; const char* name; };
+    static const Bit kBits[] = {
+        {POWMAN_CHIP_RESET_HAD_POR_BITS, "power-on"},
+        {POWMAN_CHIP_RESET_HAD_BOR_BITS, "brown-out"},
+        {POWMAN_CHIP_RESET_HAD_RUN_LOW_BITS, "RUN pin low"},
+        {POWMAN_CHIP_RESET_HAD_DP_RESET_REQ_BITS, "debug port"},
+        {POWMAN_CHIP_RESET_HAD_RESCUE_BITS, "rescue"},
+        {POWMAN_CHIP_RESET_HAD_WATCHDOG_RESET_POWMAN_BITS, "watchdog (powman)"},
+        {POWMAN_CHIP_RESET_HAD_WATCHDOG_RESET_POWMAN_ASYNC_BITS, "watchdog (powman async)"},
+        {POWMAN_CHIP_RESET_HAD_WATCHDOG_RESET_SWCORE_BITS, "watchdog (core)"},
+        {POWMAN_CHIP_RESET_HAD_SWCORE_PD_BITS, "core power-down"},
+        {POWMAN_CHIP_RESET_HAD_GLITCH_DETECT_BITS, "glitch detector"},
+        {POWMAN_CHIP_RESET_HAD_HZD_SYS_RESET_REQ_BITS, "system reset request"},
+        {POWMAN_CHIP_RESET_HAD_WATCHDOG_RESET_PSM_BITS, "watchdog (PSM)"},
+    };
+    printf("Last reset cause (CHIP_RESET 0x%08lX):", static_cast<unsigned long>(g_reset_reason));
+    for (const Bit& b : kBits)
+        if (g_reset_reason & b.mask) printf(" [%s]", b.name);
+    printf("\n");
+}
+
+void cmd_fault() {
+    print_reset_reason();
+    if (!g_fault_seen) {
+        printf("No hard fault recorded since power-on\n");
+        return;
+    }
+    printf("Hard fault before this boot: pc 0x%08lX lr 0x%08lX cfsr 0x%08lX\n", static_cast<unsigned long>(g_fault.pc),
+           static_cast<unsigned long>(g_fault.lr), static_cast<unsigned long>(g_fault.cfsr));
+}
 
 // Serial commands: bt (devices and scan results), btscan (look for devices to pair), btforget (all devices).
 void cmd_bt() {
@@ -95,7 +134,23 @@ void cmd_bt_forget() {
 
 } // namespace
 
+// Core 0's linker stack is 4 KiB (all the scratch bank holds) and the 'info' command showed it fully
+// used: LVGL's renderer, FatFs and printf run on it, and BTstack's handlers come on top of whatever
+// the main loop was doing (interrupt context, same stack). Overflowing it smashed a return address and
+// crashed the board (hard fault to address 0). So the main code runs on a larger stack in RAM:
+// main() points MSP at it and enters app_main(), which never returns. Interrupts use it too.
+constexpr size_t kMainStackBytes = 10 * 1024;
+alignas(8) uint8_t g_main_stack[kMainStackBytes];
+
+extern "C" int app_main();
+
 int main() {
+    picoboot::stack_use_region(g_main_stack, sizeof(g_main_stack));
+    asm volatile("msr msp, %0\n\tbl app_main" ::"r"(g_main_stack + sizeof(g_main_stack)) : "memory");
+    __builtin_unreachable();
+}
+
+extern "C" int app_main() {
     picoboot::BootTag tag;
     bool from_app_request = false;
     if (picoboot::FastBoot::consume(tag)) {
@@ -103,6 +158,7 @@ int main() {
         from_app_request = (tag == picoboot::BootTag::kReenterBootloader);
     }
 
+    g_reset_reason = powman_hw->chip_reset;
     picoboot::stack_paint(); // for the 'info' command's stack headroom
     stdio_init_all();
 
@@ -154,6 +210,7 @@ int main() {
     static picoboot::BtPanel bt_panel(bt);
     ui.add_header_button(LV_SYMBOL_BLUETOOTH, picoboot::BtPanel::request_open, &bt_panel);
     static picoboot::SerialUi serial_ui(manager, /*allow_auto_boot=*/false);
+    serial_ui.add_command("fault", cmd_fault);
     serial_ui.add_command("bt", cmd_bt);
     serial_ui.add_command("btscan", cmd_bt_scan);
     serial_ui.add_command("btforget", cmd_bt_forget);
@@ -170,7 +227,8 @@ int main() {
             lcd_pending = false;
             lcd_ok = multicore_fifo_pop_blocking() == 1;
             printf("PicoBoot Presto: LCD %s\n", lcd_ok ? "ok" : "FAILED");
-            pico_toolset::report_pending_hard_fault("PicoBoot"); // a crash resets the board and is reported here
+            g_fault_seen = pico_toolset::consume_pending_hard_fault(g_fault); // a crash resets the board
+            if (g_fault_seen) cmd_fault();
             picoboot::trace::mark(lcd_ok ? "lcd_ready" : "lcd_FAILED");
         }
         // The radio costs ~1 s with the USB stack unserviced (it loads the CYW43 firmware), so it

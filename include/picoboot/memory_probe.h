@@ -8,6 +8,10 @@ namespace picoboot {
 // console). The stack is checked by painting its unused part with a pattern at
 // startup and later counting how much is still untouched.
 
+// When main() runs on a stack of its own (not the linker's), tell the probe where it is, before
+// stack_paint().
+void stack_use_region(void* base, size_t size);
+
 // Call once, early in main().
 void stack_paint();
 
