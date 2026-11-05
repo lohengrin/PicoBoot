@@ -1,5 +1,7 @@
 #include "picoboot/lvgl_input.h"
 
+#include "pico_toolset/lvgl_wheel.h"
+
 #include <algorithm>
 
 namespace picoboot {
@@ -55,14 +57,13 @@ uint32_t held_key() {
     return key;
 }
 
-// Page jumps, mouse wheel and the QwSTPad's own buttons, all edge-triggered.
+// Page jumps and the QwSTPad's own buttons, all edge-triggered.
 void collect_queued_steps() {
     namespace qb = pico_toolset::qwstpad_button;
     if (g.bt->ready()) {
         pico_toolset::BluetoothHid& hid = g.bt->hid();
         if (hid.consume_key_press(kKeyPageDown)) g.queued += kPageRows;
         if (hid.consume_key_press(kKeyPageUp)) g.queued -= kPageRows;
-        g.queued -= hid.consume_mouse_wheel(); // wheel up (positive) = towards the top
     }
     if (g.pad) {
         const uint16_t now = g.pad->read_buttons();
@@ -121,6 +122,8 @@ void mouse_read_cb(lv_indev_t*, lv_indev_data_t* data) {
     g.mouse_y = std::clamp(g.mouse_y + dy * kMouseSpeedNum / kMouseSpeedDen, 0, g.height - 1);
     data->point.x = g.mouse_x;
     data->point.y = g.mouse_y;
+    // Wheel up (positive) shows what is above: the content moves down.
+    pico_toolset::lvgl_scroll_under(data->point, g.bt->hid().consume_mouse_wheel());
     const auto m = g.bt->hid().mouse_state();
     data->state = (m.left || m.right || m.middle) ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
 }
