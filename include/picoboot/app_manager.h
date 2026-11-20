@@ -47,6 +47,19 @@ public:
     // True once a scan() (or refresh()) has run, so a UI need not repeat the startup scan.
     [[nodiscard]] bool scanned() const { return m_scanned; }
 
+    // scan() in steps, so the main loop (USB, display) keeps running while a big folder is read:
+    // begin_scan() starts it, scan_step() does a few milliseconds of it per call and returns true
+    // while more remains. While scanning() the catalog is incomplete; scanned() turns true at the end.
+    void begin_scan();
+    bool scan_step();
+    [[nodiscard]] bool scanning() const { return m_scan_stage != ScanStage::kIdle; }
+    // Called between the slices of every blocking scan / re-list (refresh, folder navigation), e.g. to
+    // service the USB drive.
+    void set_yield(void (*yield)()) {
+        m_yield = yield;
+        m_catalog.set_yield(yield);
+    }
+
     // Folder navigation (one level per view): enter the folder at catalog index /
     // go to the parent, then re-list. Return false when not possible (not a folder,
     // already at the root). up() reports the folder left, to reselect it.
@@ -88,6 +101,9 @@ private:
     unsigned m_screenshot_counter = 0; // last number handed out
     PicoBootConfig m_config;
     bool m_scanned = false;
+    enum class ScanStage : uint8_t { kIdle, kConfig, kCatalog };
+    ScanStage m_scan_stage = ScanStage::kIdle;
+    void (*m_yield)() = nullptr;
     bool m_dir_from_config = false; // the first listing starts in last_run's folder
     std::string m_error_long;
     std::string m_error_short;

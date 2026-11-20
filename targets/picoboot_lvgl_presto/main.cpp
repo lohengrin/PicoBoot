@@ -171,8 +171,10 @@ extern "C" int app_main() {
     picoboot::usb_bridge_init(sd_card);
     pico_toolset::LvglDisplayAdapter::s_idle_hook = pump_usb;
     pump_usb();
-    manager.scan();
-    picoboot::trace::mark("catalog_scanned");
+    // The catalog is read in short steps from the main loop below (USB and the display keep running
+    // meanwhile); blocking re-lists (Refresh, folders) serve USB between slices too.
+    manager.set_yield(pump_usb);
+    manager.begin_scan();
     pump_usb();
 
     // Core 1 initialises the panel (~0.4 s) and then only serves the scanout interrupts: core 0
@@ -252,6 +254,7 @@ extern "C" int app_main() {
                    static_cast<unsigned>(bt.devices().bonded(bonded, pico_toolset::BluetoothDevices::kMaxDevices)));
         }
         if (bt.ready() && bt.hid().consume_key_press(0x46)) ui.request_screenshot(); // PrintScreen
+        manager.scan_step(); // a few ms of the startup catalog scan per pass
         ui.poll();
         {
             picoboot::trace::Scope timed("bt_panel");

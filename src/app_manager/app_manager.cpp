@@ -17,6 +17,10 @@
 
 namespace picoboot {
 
+namespace {
+constexpr uint32_t kScanSliceUs = 3000; // per scan_step(): short enough to keep USB answering
+}
+
 bool AppManager::mount() {
     trace::Scope timed("sd_mount");
     m_sd_card.init(m_sd_config);
@@ -25,20 +29,45 @@ bool AppManager::mount() {
 }
 
 void AppManager::scan() {
-    trace::Scope timed("catalog_scan");
-    if (m_sd_card.is_mounted()) {
-        m_config.load();
-        if (!m_dir_from_config) {
-            // Start where the last app came from (the catalog falls back to the root
-            // if that folder is gone).
-            m_dir_from_config = true;
-            const size_t slash = m_config.last_run_binary.rfind('/');
-            m_catalog.set_directory(slash == std::string::npos ? std::string()
-                                                               : m_config.last_run_binary.substr(0, slash));
-        }
+    begin_scan();
+    while (scan_step()) {
+        if (m_yield) m_yield();
     }
-    m_catalog.refresh(m_sd_card);
-    m_scanned = true;
+}
+
+void AppManager::begin_scan() {
+    m_scanned = false;
+    m_scan_stage = ScanStage::kConfig;
+    trace::mark("scan_begin");
+}
+
+bool AppManager::scan_step() {
+    switch (m_scan_stage) {
+        case ScanStage::kIdle:
+            return false;
+        case ScanStage::kConfig:
+            if (m_sd_card.is_mounted()) {
+                m_config.load();
+                if (!m_dir_from_config) {
+                    // Start where the last app came from (the catalog falls back to the root
+                    // if that folder is gone).
+                    m_dir_from_config = true;
+                    const size_t slash = m_config.last_run_binary.rfind('/');
+                    m_catalog.set_directory(slash == std::string::npos ? std::string()
+                                                                       : m_config.last_run_binary.substr(0, slash));
+                }
+            }
+            m_catalog.begin_refresh(m_sd_card);
+            m_scan_stage = ScanStage::kCatalog;
+            return true;
+        case ScanStage::kCatalog:
+            if (m_catalog.step(kScanSliceUs)) return true;
+            m_scan_stage = ScanStage::kIdle;
+            m_scanned = true;
+            trace::mark("catalog_scanned");
+            return false;
+    }
+    return false;
 }
 
 bool AppManager::refresh() {

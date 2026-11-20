@@ -186,7 +186,9 @@ void LvglUi::populate() {
     }
     m_reselect.clear();
     if (reselect) lv_obj_scroll_to_view(reselect, LV_ANIM_OFF);
-    if (catalog.count() == 0) {
+    if (m_waiting_for_scan && m_manager.scanning()) {
+        lv_list_add_text(m_list, "Reading the card...");
+    } else if (catalog.count() == 0) {
         lv_list_add_text(m_list, "(no folders or .bin files found)");
     } else if (catalog.count() > shown || catalog.truncated()) {
         lv_list_add_text(m_list, "(list truncated)");
@@ -309,7 +311,14 @@ void LvglUi::navigate(bool up, size_t index) {
 void LvglUi::poll() {
     if (!m_built) {
         build();
-        if (!m_manager.scanned()) m_manager.refresh(); // normally the target already did the startup scan
+        // Normally the target already started the scan (begin_scan(), stepped from its main loop);
+        // without any, do it now.
+        if (!m_manager.scanned() && !m_manager.scanning()) m_manager.refresh();
+        m_waiting_for_scan = m_manager.scanning();
+        populate();
+        if (!m_waiting_for_scan) start_countdown();
+    } else if (m_waiting_for_scan && !m_manager.scanning()) {
+        m_waiting_for_scan = false;
         populate();
         start_countdown();
     }

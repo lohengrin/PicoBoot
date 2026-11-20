@@ -73,6 +73,7 @@ int main() {
     pico_toolset::LvglDisplayAdapter::s_idle_hook = release_bus_and_pump_usb;
 
     release_bus_and_pump_usb();
+    manager.set_yield(release_bus_and_pump_usb); // the host keeps being served while a big folder is listed
     manager.scan();
     release_bus_and_pump_usb();
     g_lcd.init(pico_toolset::configs::st7789::kElecrowCrowPanelPicoHmi28);

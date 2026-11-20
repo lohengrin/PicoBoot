@@ -88,6 +88,7 @@ int main() {
     pico_toolset::LvglDisplayAdapter::s_idle_hook = picoboot::usb_bridge_task;
 
     picoboot::usb_bridge_task();
+    manager.set_yield(pump_usb); // the host keeps being served while a big folder is listed
     manager.scan();
     picoboot::usb_bridge_task();
     g_lcd.init(lcd_config());

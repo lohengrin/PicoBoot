@@ -3,6 +3,7 @@
 #include "pico_toolset/sdcard.h"
 
 #include <cstdint>
+#include <memory>
 #include <span>
 #include <string>
 #include <vector>
@@ -30,7 +31,22 @@ public:
     // action fires (including after a host has drag-and-dropped a new
     // file over USB MSC -- see docs/architecture.md's "manual refresh,
     // not live coherency" model).
+    // Blocking, but it calls the yield hook (set_yield) between slices of a few milliseconds, so a
+    // USB host keeps being served while a big folder is read.
     void refresh(const pico_toolset::SdCard& sd_card);
+
+    // The same scan in steps, for startup: begin_refresh() opens the folder, step() reads entries for
+    // at most `budget_us` and returns true while more remain (the catalog is complete and sorted once
+    // it returns false). The caller serves USB (and the UI) between steps. A new begin_refresh()
+    // or refresh() abandons a scan in progress. While scanning() the entries are partial and unsorted.
+    void begin_refresh(const pico_toolset::SdCard& sd_card);
+    bool step(uint32_t budget_us);
+    [[nodiscard]] bool scanning() const { return m_scan != nullptr; }
+
+    // Called between the slices of a blocking refresh(), e.g. to service the USB drive.
+    void set_yield(void (*yield)()) { m_yield = yield; }
+    ~AppCatalog();
+    AppCatalog();
 
     // Current directory: "" = root, else "dir/sub" (same form as AppBinaryEntry::path).
     [[nodiscard]] const std::string& cwd() const { return m_cwd; }
@@ -60,6 +76,11 @@ public:
     [[nodiscard]] const AppBinaryEntry* find(size_t index) const;
 
 private:
+    struct Scan;                     // the open directory of a scan in progress
+    void finish_scan();
+
+    std::unique_ptr<Scan> m_scan;
+    void (*m_yield)() = nullptr;
     std::vector<AppBinaryEntry> m_entries;
     std::string m_cwd;
     bool m_truncated = false;

@@ -47,6 +47,7 @@ private:
     AppManager& m_manager;
     pico_toolset::LvglDisplayAdapter& m_adapter;
     bool m_built = false;
+    bool m_waiting_for_scan = false; // the startup scan is still running: the list is filled when it ends
 
     lv_obj_t* m_list = nullptr;
     lv_obj_t* m_no_card = nullptr;

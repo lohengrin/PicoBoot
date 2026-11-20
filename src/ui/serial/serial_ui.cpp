@@ -177,6 +177,7 @@ void SerialUi::update_countdown() {
 
 void SerialUi::poll() {
     if (!m_started) {
+        if (m_manager.scanning()) return; // the menu lists the catalog: wait for the startup scan
         m_started = true;
         if (!m_manager.scanned()) m_manager.refresh();
         show_menu();

@@ -206,6 +206,7 @@ int main() {
     picoboot::usb_bridge_init(sd_card);
     pico_toolset::LvglDisplayAdapter::s_idle_hook = pump_usb;
     pump_usb();
+    manager.set_yield(pump_usb); // the host keeps being served while a big folder is listed
     manager.scan();
     pump_usb();
 
