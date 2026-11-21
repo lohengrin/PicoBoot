@@ -1,5 +1,6 @@
 #include "picoboot/serial_ui.h"
 
+#include "picoboot/crash_report.h"
 #include "picoboot/fastboot.h"
 #include "picoboot/flash_layout.h"
 
@@ -182,8 +183,16 @@ void SerialUi::poll() {
         if (!m_manager.scanned()) m_manager.refresh();
         show_menu();
 
+        // The previous run ended in a hard fault: say so and do not auto-boot into the same crash.
+        const CrashReport& crash = crash_report();
+        if (crash.present) {
+            char text[128];
+            crash_summary(crash, text, sizeof(text));
+            printf("\n*** Previous run: %s ***\n", text);
+        }
+
         const PicoBootConfig& cfg = m_manager.config();
-        if (m_allow_auto_boot && cfg.auto_boot_timeout_s > 0 && !cfg.last_run_binary.empty()) {
+        if (!crash.present && m_allow_auto_boot && cfg.auto_boot_timeout_s > 0 && !cfg.last_run_binary.empty()) {
             const AppCatalog& catalog = m_manager.catalog();
             for (size_t i = 0; i < catalog.count(); ++i) {
                 if (catalog.find(i)->path == cfg.last_run_binary) {

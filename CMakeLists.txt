@@ -117,6 +117,9 @@ endif()
 
 add_subdirectory(${TOOLSET_ROOT}/components/usb_composite ${CMAKE_BINARY_DIR}/_toolset/usb_composite EXCLUDE_FROM_ALL)
 
+# Hard-fault report of the previous run (every target).
+add_subdirectory(${TOOLSET_ROOT}/libs/fault_handler ${CMAKE_BINARY_DIR}/_toolset/fault_handler EXCLUDE_FROM_ALL)
+
 # LVGL UI: panel/touch/video drivers per board + the LVGL bridge.
 add_subdirectory(${TOOLSET_ROOT}/components/driver_interfaces ${CMAKE_BINARY_DIR}/_toolset/driver_interfaces EXCLUDE_FROM_ALL)
 if(PICOBOOT_BOARD STREQUAL "waveshare_pizero")
@@ -139,7 +142,6 @@ if(PICOBOOT_BOARD STREQUAL "presto")
         add_subdirectory(${TOOLSET_ROOT}/components/bluetooth_a2dp ${CMAKE_BINARY_DIR}/_toolset/bluetooth_a2dp EXCLUDE_FROM_ALL)
     endif()
     add_subdirectory(${TOOLSET_ROOT}/libs/bluetooth_ui ${CMAKE_BINARY_DIR}/_toolset/bluetooth_ui EXCLUDE_FROM_ALL)
-    add_subdirectory(${TOOLSET_ROOT}/libs/fault_handler ${CMAKE_BINARY_DIR}/_toolset/fault_handler EXCLUDE_FROM_ALL)
     add_subdirectory(${TOOLSET_ROOT}/components/qwstpad ${CMAKE_BINARY_DIR}/_toolset/qwstpad EXCLUDE_FROM_ALL)
     add_subdirectory(${TOOLSET_ROOT}/components/st7701 ${CMAKE_BINARY_DIR}/_toolset/st7701 EXCLUDE_FROM_ALL)
     add_subdirectory(${TOOLSET_ROOT}/components/ft6236 ${CMAKE_BINARY_DIR}/_toolset/ft6236 EXCLUDE_FROM_ALL)

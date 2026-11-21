@@ -338,6 +338,16 @@ the linker actually placed the vector table. See
 hardware-verified** — re-check the same way (inspect a real built `.bin`)
 during Phase 8's RP2040 bring-up before relying on it.
 
+## Crash report
+
+Every target links `pico_toolset_fault_handler`. A hard fault stores pc/lr/cfsr in the watchdog
+scratch registers and resets; the next boot reads them once (`picoboot::crash_report()`, see
+[`include/picoboot/crash_report.h`](../include/picoboot/crash_report.h)). When a fault is pending
+the LVGL UIs show it in red in the status line and the serial UI prints it, and **auto-boot is
+skipped** so a crashing program is not relaunched in a loop. This also covers a launched
+program, provided it links the same toolset handler (a program without it halts in the SDK's
+`bkpt` and cannot be reported). Presto also has the `fault` serial command (reset cause + fault).
+
 ## Toolset reuse
 
 Reused as-is from Pico-Toolset: `pico_toolset_sdcard`, `pico_toolset_reset_buttons`,

@@ -1,5 +1,6 @@
 #include "picoboot/lvgl_ui.h"
 
+#include "picoboot/crash_report.h"
 #include "picoboot/fastboot.h"
 #include "picoboot/storage_state.h"
 #include "picoboot/trace.h"
@@ -203,6 +204,14 @@ void LvglUi::set_status(const std::string& text, bool error) {
 }
 
 void LvglUi::start_countdown() {
+    // The previous run ended in a hard fault: say so and do not auto-boot into the same crash.
+    const CrashReport& crash = crash_report();
+    if (crash.present) {
+        char text[128];
+        crash_summary(crash, text, sizeof(text));
+        set_status(text, true);
+        return;
+    }
     const PicoBootConfig& cfg = m_manager.config();
     if (!m_allow_auto_boot || cfg.auto_boot_timeout_s == 0 || cfg.last_run_binary.empty()) return;
     const AppCatalog& catalog = m_manager.catalog();

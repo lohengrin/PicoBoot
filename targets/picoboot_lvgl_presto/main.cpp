@@ -22,7 +22,7 @@
 #include "pico/stdlib.h"
 
 #include <cstdio>
-#include "pico_toolset/fault_handler.h"
+#include "picoboot/crash_report.h"
 #include "hardware/structs/powman.h"
 
 namespace {
@@ -38,8 +38,6 @@ alignas(4) uint8_t g_framebuf[kWidth * kHeight];
 alignas(64) uint16_t g_draw_buffer[kWidth * kDrawRows];
 
 pico_toolset::St7701 g_lcd;
-pico_toolset::FaultInfo g_fault{};
-bool g_fault_seen = false;
 picoboot::BtManager* g_bt = nullptr; // for the serial commands (plain function pointers)
 
 // The panel's PIO/DMA interrupts are served by the core that calls init(): core 1, so
@@ -63,8 +61,8 @@ void pump_usb() { picoboot::usb_bridge_task(); }
 // QW/ST connector: I2C0 on GPIO40 (SDA) / GPIO41 (SCL).
 constexpr uint kQwstSdaPin = 40, kQwstSclPin = 41;
 
-// The hard fault that caused the last reset, kept for the "fault" command (the serial port is usually
-// reopened after the reset, too late for the boot message).
+// The POWMAN reset cause and the hard fault (picoboot::crash_report) are kept for the "fault" command: the
+// serial port is usually reopened after the reset, too late for the boot message.
 uint32_t g_reset_reason = 0; // POWMAN CHIP_RESET at boot: why the chip last reset
 
 void print_reset_reason() {
@@ -91,12 +89,13 @@ void print_reset_reason() {
 
 void cmd_fault() {
     print_reset_reason();
-    if (!g_fault_seen) {
+    const picoboot::CrashReport& fault = picoboot::crash_report();
+    if (!fault.present) {
         printf("No hard fault recorded since power-on\n");
         return;
     }
-    printf("Hard fault before this boot: pc 0x%08lX lr 0x%08lX cfsr 0x%08lX\n", static_cast<unsigned long>(g_fault.pc),
-           static_cast<unsigned long>(g_fault.lr), static_cast<unsigned long>(g_fault.cfsr));
+    printf("Hard fault before this boot: pc 0x%08lX lr 0x%08lX cfsr 0x%08lX\n", static_cast<unsigned long>(fault.pc),
+           static_cast<unsigned long>(fault.lr), static_cast<unsigned long>(fault.cfsr));
 }
 
 // Serial commands: bt (devices and scan results), btscan (look for devices to pair), btforget (all devices).
@@ -229,8 +228,7 @@ extern "C" int app_main() {
             lcd_pending = false;
             lcd_ok = multicore_fifo_pop_blocking() == 1;
             printf("PicoBoot Presto: LCD %s\n", lcd_ok ? "ok" : "FAILED");
-            g_fault_seen = pico_toolset::consume_pending_hard_fault(g_fault); // a crash resets the board
-            if (g_fault_seen) cmd_fault();
+            if (picoboot::crash_report().present) cmd_fault(); // a crash resets the board
             picoboot::trace::mark(lcd_ok ? "lcd_ready" : "lcd_FAILED");
         }
         // The radio costs ~1 s with the USB stack unserviced (it loads the CYW43 firmware), so it

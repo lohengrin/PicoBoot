@@ -17,6 +17,7 @@ add_library(picoboot_boot_core STATIC
     boot_core/flash_writer.cpp
     boot_core/image_check.cpp
     boot_core/memory_probe.cpp
+    boot_core/crash_report.cpp
 )
 target_include_directories(picoboot_boot_core PUBLIC
     ${PROJECT_SOURCE_DIR}/include
@@ -29,6 +30,7 @@ target_link_libraries(picoboot_boot_core PUBLIC
     pico_flash
     pico_multicore
     pico_toolset_reset_buttons
+    pico_toolset_fault_handler # hard-fault report of the previous run (crash_report.h)
 )
 
 # --- storage: AppCatalog over the SD card component -- no boot_core/usb/ui dependency.
